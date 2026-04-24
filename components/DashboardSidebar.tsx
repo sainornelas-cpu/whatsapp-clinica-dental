@@ -1,12 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { createClientComponent } from '@/lib/supabase';
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClientComponent();
 
   const isActive = (path: string) => pathname?.startsWith(path);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   const navItems = [
     { path: '/dashboard/conversations', label: 'Conversaciones', icon: '💬' },
@@ -40,13 +49,13 @@ export default function DashboardSidebar() {
       </nav>
 
       <div className="mt-8 pt-8 border-t border-gray-700">
-        <Link
-          href="/login"
-          className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
         >
           <span className="text-xl">🚪</span>
           <span className="font-medium">Cerrar sesión</span>
-        </Link>
+        </button>
       </div>
     </aside>
   );

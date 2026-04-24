@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { supabaseService } from '@/lib/supabase';
+import { getCalEventType } from '@/lib/cal-config';
 import fs from 'fs';
 import path from 'path';
 
@@ -342,7 +343,15 @@ export async function POST(request: NextRequest) {
 // Tool functions
 async function checkAvailability(date: string, serviceType: string) {
   try {
-    const url = `https://api.cal.com/v1/slots?apiKey=${process.env.CAL_API_KEY}&eventTypeId=${process.env.CAL_EVENT_TYPE_ID}&startTime=${date}T00:00:00Z&endTime=${date}T23:59:59Z`;
+    // Obtener el event type ID según el servicio
+    const calConfig = getCalEventType(serviceType);
+
+    if (!calConfig || !calConfig.eventTypeId) {
+      console.error('No event type ID found for service:', serviceType);
+      return { error: `No se encontró configuración para el servicio: ${serviceType}` };
+    }
+
+    const url = `https://api.cal.com/v1/slots?apiKey=${process.env.CAL_API_KEY}&eventTypeId=${calConfig.eventTypeId}&startTime=${date}T00:00:00Z&endTime=${date}T23:59:59Z`;
 
     const response = await fetch(url);
     const data = await response.json();
@@ -352,7 +361,12 @@ async function checkAvailability(date: string, serviceType: string) {
       return { error: 'No se pudo verificar disponibilidad. Por favor intenta más tarde.' };
     }
 
-    return data;
+    // Agregar información del servicio a la respuesta
+    return {
+      ...data,
+      serviceType,
+      duration: calConfig.duration,
+    };
   } catch (error) {
     console.error('Error checking availability:', error);
     return { error: 'Error al verificar disponibilidad' };
@@ -363,13 +377,21 @@ async function bookAppointment(params: any) {
   try {
     const { name, email, phone, date_time, service_type, notes } = params;
 
+    // Obtener el event type ID según el servicio
+    const calConfig = getCalEventType(service_type);
+
+    if (!calConfig || !calConfig.eventTypeId) {
+      console.error('No event type ID found for service:', service_type);
+      return { error: `No se encontró configuración para el servicio: ${service_type}` };
+    }
+
     // Book with Cal.com
     const calUrl = `https://api.cal.com/v1/bookings?apiKey=${process.env.CAL_API_KEY}`;
     const calResponse = await fetch(calUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        eventTypeId: process.env.CAL_EVENT_TYPE_ID,
+        eventTypeId: calConfig.eventTypeId,
         start: date_time,
         name,
         email,

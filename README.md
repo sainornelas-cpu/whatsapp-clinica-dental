@@ -54,7 +54,13 @@ Sistema completo de asistente virtual de WhatsApp para Clínica Dental Sonrisa c
 
    # Cal.com
    CAL_API_KEY=tu_api_key_de_cal
-   CAL_EVENT_TYPE_ID=tu_id_de_tipo_de_evento
+   # Event Type IDs para cada servicio (obtenidos de tu cuenta de Cal.com)
+   CAL_EVENT_TYPE_LIMPIEZA=id_para_limpieza
+   CAL_EVENT_TYPE_CONSULTA=id_para_consulta
+   CAL_EVENT_TYPE_BLANQUEAMIENTO=id_para_blanqueamiento
+   CAL_EVENT_TYPE_ORTODONCIA=id_para_ortodoncia
+   CAL_EVENT_TYPE_EXTRACCION=id_para_extraccion
+   CAL_EVENT_TYPE_URGENCIA=id_para_urgencia
 
    # Cron Job Security
    CRON_SECRET=tu_secreto_para_cron
@@ -113,18 +119,24 @@ Sistema completo de asistente virtual de WhatsApp para Clínica Dental Sonrisa c
 
 ## 🗓️ Configuración de Cal.com
 
-1. **Crear tipos de eventos**
-   - Limpieza dental: 45 minutos
-   - Consulta de revisión: 30 minutos
+1. **Crear tipos de eventos en Cal.com**
+   - Limpieza dental profesional: 45 minutos
+   - Consulta general: 30 minutos
    - Blanqueamiento dental: 90 minutos
    - Ortodoncia: 60 minutos
-   - Extracción simple: 45 minutos
-   - Urgencias: 30 minutos
+   - Extracción dental: 45 minutos
+   - Atención de urgencia: 30 minutos
 
 2. **Obtener API Key y Event Type IDs**
    - Ve a Configuración > Developer > API Keys
    - Copia tu API Key
-   - Para cada tipo de evento, obtiene el `eventTypeId`
+   - Para obtener los Event Type IDs, puedes:
+     - Usar el script `scripts/get-cal-event-ids.ts`:
+       ```bash
+       CAL_API_KEY=tu_api_key npx ts-node scripts/get-cal-event-ids.ts
+       ```
+     - O hacer una llamada GET a `https://api.cal.com/v2/event-types?apiKey=TU_API_KEY`
+   - Copia los IDs numéricos de cada tipo de evento para agregarlos a `.env.local`
 
 ## 📊 Uso del Dashboard
 
