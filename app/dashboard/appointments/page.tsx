@@ -63,9 +63,10 @@ export default function AppointmentsPage() {
 
   const updateStatus = async (appointmentId: string, newStatus: 'pending' | 'scheduled' | 'cancelled' | 'completed' | 'no_show') => {
     try {
+      // @ts-expect-error - Supabase types issue with client component
       const { error } = await supabase
         .from('appointments')
-        .update({ status: newStatus, updated_at: new Date().toISOString() } as Partial<Appointment>)
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', appointmentId);
 
       if (error) throw error;
