@@ -12,7 +12,7 @@ DECLARE
   dup RECORD;
 BEGIN
   FOR dup IN
-    SELECT cal_booking_uid, MIN(id) as keep_id
+    SELECT cal_booking_uid, MIN(id::text)::uuid as keep_id
     FROM appointments
     WHERE cal_booking_uid IS NOT NULL
     GROUP BY cal_booking_uid
