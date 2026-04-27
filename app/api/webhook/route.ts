@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'get_my_appointments',
-            description: 'Get all appointments for a patient. Use when patient asks for "mis citas", "ver citas", "citas", or wants to see their scheduled appointments.',
+            description: 'Get all appointments for a patient. CRITICAL: Use IMMEDIATELY when patient asks ANYTHING about their appointments including: "mis citas", "ver citas", "citas", "qué día es mi cita", "cuándo tengo cita", "me recuerdas mi cita", "cuándo es mi próxima cita", "qué hora es mi cita", "cuándo me toca", "mi cita". NEVER say "I dont know" - ALWAYS call this function first to check.',
             parameters: {
               type: 'object',
               properties: {
@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'cancel_appointment',
-            description: 'Cancel an appointment by booking UID. Returns instructions for the patient to cancel via Cal.com link.',
+            description: 'Cancel an appointment by booking UID. Marks the appointment as cancelled in the database. Use when patient wants to cancel a specific appointment. Requires booking_uid from get_my_appointments.',
             parameters: {
               type: 'object',
               properties: {
@@ -395,32 +395,50 @@ async function cancelAppointment(params: any) {
   try {
     const { booking_uid } = params;
 
-    // Get appointment details
-    const { data: appointment, error } = await supabaseService
+    // Get appointment details first
+    const { data: appointment, error: findError } = await supabaseService
       .from('appointments')
       .select('*')
       .eq('cal_booking_uid', booking_uid)
       .single();
 
-    if (error || !appointment) {
+    if (findError || !appointment) {
       return { error: 'No se encontró la cita.' };
     }
 
-    // Extract booking link from notes
+    // Cancel the appointment in database
+    const { error: updateError } = await supabaseService
+      .from('appointments')
+      .update({
+        status: 'cancelled',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('cal_booking_uid', booking_uid);
+
+    if (updateError) {
+      console.error('Error cancelling appointment in database:', updateError);
+      return { error: 'Error al cancelar la cita.' };
+    }
+
+    console.log(`Appointment ${booking_uid} cancelled successfully`);
+
+    // Extract booking link from notes for Cal.com cancellation
     const bookingLink = appointment.notes?.match(/https?:\/\/[^\s]+/)?.[0];
 
+    let message = `✅ Tu cita de ${appointment.service_type} ha sido cancelada.`;
+
     if (bookingLink) {
-      return {
-        success: true,
-        message: `Para cancelar tu cita de ${appointment.service_type}, usa este link: ${bookingLink}`,
-        bookingLink,
-      };
-    } else {
-      return {
-        success: true,
-        message: 'Para cancelar tu cita, por favor contáctanos directamente o revisa el email de confirmación de Cal.com.',
-      };
+      message += `\n\n💡 Nota: También puedes cancelar en Cal.com usando este link si lo necesitas:\n${bookingLink}`;
     }
+
+    message += '\n\n¿Puedo ayudarte con algo más?';
+
+    return {
+      success: true,
+      cancelled: true,
+      service_type: appointment.service_type,
+      message,
+    };
   } catch (error) {
     console.error('Error cancelling appointment:', error);
     return { error: 'Error al procesar la cancelación' };
