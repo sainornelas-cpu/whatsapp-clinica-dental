@@ -6,19 +6,20 @@
 DROP INDEX IF EXISTS idx_appointments_phone_number;
 DROP INDEX IF EXISTS idx_appointments_status;
 DROP INDEX IF EXISTS idx_appointments_date;
+DROP INDEX IF EXISTS idx_appointments_cal_booking_uid;
 DROP INDEX IF EXISTS idx_messages_conversation_id;
 DROP INDEX IF EXISTS idx_conversations_phone_number;
 DROP INDEX IF EXISTS idx_patients_phone_number;
 
 -- Drop policies
-DROP POLICY IF EXISTS "Service role full access" ON patients;
-DROP POLICY IF EXISTS "Auth users read patients" ON patients;
-DROP POLICY IF EXISTS "Service role full access" ON appointments;
-DROP POLICY IF EXISTS "Auth users read appointments" ON appointments;
-DROP POLICY IF EXISTS "Service role full access" ON conversations;
-DROP POLICY IF EXISTS "Auth users read conversations" ON conversations;
-DROP POLICY IF EXISTS "Service role full access" ON messages;
-DROP POLICY IF EXISTS "Auth users read messages" ON messages;
+DROP POLICY IF EXISTS "Service role full access to patients" ON patients;
+DROP POLICY IF EXISTS "Authenticated users can read patients" ON patients;
+DROP POLICY IF EXISTS "Service role full access to appointments" ON appointments;
+DROP POLICY IF EXISTS "Authenticated users can read appointments" ON appointments;
+DROP POLICY IF EXISTS "Service role full access to conversations" ON conversations;
+DROP POLICY IF EXISTS "Authenticated users can read conversations" ON conversations;
+DROP POLICY IF EXISTS "Service role full access to messages" ON messages;
+DROP POLICY IF EXISTS "Authenticated users can read messages" ON messages;
 
 -- Drop tables (order matters due to foreign keys)
 DROP TABLE IF EXISTS messages CASCADE;
@@ -48,10 +49,10 @@ CREATE TABLE appointments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   patient_id UUID REFERENCES patients(id) ON DELETE SET NULL,
   phone_number TEXT NOT NULL,
-  cal_booking_uid TEXT,
+  cal_booking_uid TEXT UNIQUE,
   service_type TEXT NOT NULL,
   appointment_date TIMESTAMPTZ NOT NULL,
-  status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'cancelled', 'completed', 'no_show')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'scheduled', 'cancelled', 'completed', 'no_show')),
   reminder_sent BOOLEAN DEFAULT false,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -83,6 +84,7 @@ CREATE TABLE messages (
 CREATE INDEX idx_appointments_phone_number ON appointments(phone_number);
 CREATE INDEX idx_appointments_status ON appointments(status);
 CREATE INDEX idx_appointments_date ON appointments(appointment_date);
+CREATE INDEX idx_appointments_cal_booking_uid ON appointments(cal_booking_uid);
 CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX idx_conversations_phone_number ON conversations(phone_number);
 CREATE INDEX idx_patients_phone_number ON patients(phone_number);

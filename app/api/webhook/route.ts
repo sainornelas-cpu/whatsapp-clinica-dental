@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { supabaseService } from '@/lib/supabase';
-import { getCalEventType } from '@/lib/cal-config';
 import { getCalBookingLink } from '@/lib/cal-links';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 
 // Read agent prompt
 const agentPromptPath = path.join(process.cwd(), 'AGENT_PROMPT.md');
@@ -191,18 +191,56 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'book_appointment',
-            description: 'Generate a booking link for the patient to complete their appointment reservation on Cal.com. Use this when the patient wants to schedule an appointment.',
+            description: 'Generate a booking link for the patient to complete their appointment reservation on Cal.com. Use this when the patient wants to schedule an appointment. Only requires service_type and phone_number - patient completes all other details on Cal.com.',
             parameters: {
               type: 'object',
               properties: {
-                name: { type: 'string', description: 'Patient full name' },
-                email: { type: 'string', description: 'Patient email (optional if not provided)' },
-                phone: { type: 'string', description: 'Patient phone number' },
-                date_time: { type: 'string', description: 'Preferred date and time (ISO8601 format or readable format)' },
                 service_type: { type: 'string', description: 'Type of dental service (limpieza, consulta, blanqueamiento, ortodoncia, extracción, urgencia)' },
-                notes: { type: 'string', description: 'Additional notes about the appointment' },
+                phone: { type: 'string', description: 'Patient phone number' },
               },
-              required: ['name', 'phone', 'service_type'],
+              required: ['service_type', 'phone'],
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'get_my_appointments',
+            description: 'Get all appointments for a patient. Use when patient asks for "mis citas", "ver citas", "citas", or wants to see their scheduled appointments.',
+            parameters: {
+              type: 'object',
+              properties: {
+                phone: { type: 'string', description: 'Patient phone number' },
+              },
+              required: ['phone'],
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'cancel_appointment',
+            description: 'Cancel an appointment by booking UID. Returns instructions for the patient to cancel via Cal.com link.',
+            parameters: {
+              type: 'object',
+              properties: {
+                booking_uid: { type: 'string', description: 'The unique booking UID of the appointment to cancel' },
+              },
+              required: ['booking_uid'],
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'reschedule_appointment',
+            description: 'Provide instructions to reschedule an appointment. Returns the Cal.com link for the patient to reschedule.',
+            parameters: {
+              type: 'object',
+              properties: {
+                booking_uid: { type: 'string', description: 'The unique booking UID of the appointment to reschedule' },
+              },
+              required: ['booking_uid'],
             },
           },
         },
@@ -227,6 +265,12 @@ export async function POST(request: NextRequest) {
         let result;
         if (functionName === 'book_appointment') {
           result = await bookAppointment(functionArgs);
+        } else if (functionName === 'get_my_appointments') {
+          result = await getMyAppointments(functionArgs);
+        } else if (functionName === 'cancel_appointment') {
+          result = await cancelAppointment(functionArgs);
+        } else if (functionName === 'reschedule_appointment') {
+          result = await rescheduleAppointment(functionArgs);
         } else {
           result = { error: 'Unknown function' };
         }
@@ -269,41 +313,13 @@ export async function POST(request: NextRequest) {
 }
 
 // Tool functions
-async function checkAvailability(date: string, serviceType: string) {
-  try {
-    // Obtener el event type ID según el servicio
-    const calConfig = getCalEventType(serviceType);
-
-    if (!calConfig || !calConfig.eventTypeId) {
-      console.error('No event type ID found for service:', serviceType);
-      return { error: `No se encontró configuración para el servicio: ${serviceType}` };
-    }
-
-    const url = `https://api.cal.com/v1/slots?apiKey=${process.env.CAL_API_KEY}&eventTypeId=${calConfig.eventTypeId}&startTime=${date}T00:00:00Z&endTime=${date}T23:59:59Z`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Cal.com API error:', data);
-      return { error: 'No se pudo verificar disponibilidad. Por favor intenta más tarde.' };
-    }
-
-    // Agregar información del servicio a la respuesta
-    return {
-      ...data,
-      serviceType,
-      duration: calConfig.duration,
-    };
-  } catch (error) {
-    console.error('Error checking availability:', error);
-    return { error: 'Error al verificar disponibilidad' };
-  }
-}
 
 async function bookAppointment(params: any) {
   try {
-    const { name, email, phone, date_time, service_type, notes } = params;
+    const { service_type, phone } = params;
+
+    // Generate unique booking UID
+    const calBookingUid = `booking_${randomUUID()}`;
 
     // Obtener el link de booking según el servicio
     const bookingLink = getCalBookingLink(service_type);
@@ -313,39 +329,16 @@ async function bookAppointment(params: any) {
       return { error: `No se encontró configuración para el servicio: ${service_type}` };
     }
 
-    // Upsert patient in Supabase
-    const { error: patientError } = await supabaseService
-      .from('patients')
-      .upsert({
-        phone_number: phone,
-        full_name: name,
-        email,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'phone_number',
-      });
-
-    if (patientError) {
-      console.error('Error upserting patient:', patientError);
-    }
-
-    // Get patient ID
-    const { data: patient } = await supabaseService
-      .from('patients')
-      .select('id')
-      .eq('phone_number', phone)
-      .single();
-
     // Insert appointment in Supabase como pendiente de confirmación
     const { error: appointmentError } = await supabaseService
       .from('appointments')
       .insert({
-        patient_id: patient?.id,
         phone_number: phone,
+        cal_booking_uid: calBookingUid,
         service_type,
-        appointment_date: date_time,
+        appointment_date: new Date().toISOString(), // Will be updated by Cal.com webhook
         status: 'pending',
-        notes: notes || `Link de booking: ${bookingLink}`,
+        notes: `Link de booking: ${bookingLink}`,
       });
 
     if (appointmentError) {
@@ -356,10 +349,116 @@ async function bookAppointment(params: any) {
     return {
       success: true,
       bookingLink,
+      calBookingUid,
       message: `Para completar tu reserva de ${service_type}, por favor usa el siguiente link: ${bookingLink}`,
     };
   } catch (error) {
     console.error('Error booking appointment:', error);
     return { error: 'Error al generar link de reserva' };
+  }
+}
+
+async function getMyAppointments(params: any) {
+  try {
+    const { phone } = params;
+
+    const { data: appointments, error } = await supabaseService
+      .from('appointments')
+      .select('*')
+      .eq('phone_number', phone)
+      .in('status', ['scheduled', 'pending'])
+      .order('appointment_date', { ascending: true });
+
+    if (error) throw error;
+
+    if (!appointments || appointments.length === 0) {
+      return { appointments: [], message: 'No tienes citas programadas.' };
+    }
+
+    return {
+      appointments: appointments.map((apt: any) => ({
+        id: apt.id,
+        cal_booking_uid: apt.cal_booking_uid,
+        service_type: apt.service_type,
+        appointment_date: apt.appointment_date,
+        status: apt.status === 'pending' ? 'pendiente de confirmación' : 'confirmada',
+        booking_link: apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null,
+      })),
+    };
+  } catch (error) {
+    console.error('Error getting appointments:', error);
+    return { error: 'Error al obtener tus citas' };
+  }
+}
+
+async function cancelAppointment(params: any) {
+  try {
+    const { booking_uid } = params;
+
+    // Get appointment details
+    const { data: appointment, error } = await supabaseService
+      .from('appointments')
+      .select('*')
+      .eq('cal_booking_uid', booking_uid)
+      .single();
+
+    if (error || !appointment) {
+      return { error: 'No se encontró la cita.' };
+    }
+
+    // Extract booking link from notes
+    const bookingLink = appointment.notes?.match(/https?:\/\/[^\s]+/)?.[0];
+
+    if (bookingLink) {
+      return {
+        success: true,
+        message: `Para cancelar tu cita de ${appointment.service_type}, usa este link: ${bookingLink}`,
+        bookingLink,
+      };
+    } else {
+      return {
+        success: true,
+        message: 'Para cancelar tu cita, por favor contáctanos directamente o revisa el email de confirmación de Cal.com.',
+      };
+    }
+  } catch (error) {
+    console.error('Error cancelling appointment:', error);
+    return { error: 'Error al procesar la cancelación' };
+  }
+}
+
+async function rescheduleAppointment(params: any) {
+  try {
+    const { booking_uid } = params;
+
+    // Get appointment details
+    const { data: appointment, error } = await supabaseService
+      .from('appointments')
+      .select('*')
+      .eq('cal_booking_uid', booking_uid)
+      .single();
+
+    if (error || !appointment) {
+      return { error: 'No se encontró la cita.' };
+    }
+
+    // Extract booking link from notes
+    const bookingLink = appointment.notes?.match(/https?:\/\/[^\s]+/)?.[0];
+
+    if (bookingLink) {
+      return {
+        success: true,
+        message: `Para reagendar tu cita de ${appointment.service_type}, usa este link: ${bookingLink}`,
+        bookingLink,
+      };
+    } else {
+      return {
+        success: true,
+        message: 'Para reagendar tu cita, por favor contáctanos directamente o revisa el email de confirmación de Cal.com.',
+      };
+    }
+  } catch (error) {
+    console.error('Error rescheduling appointment:', error);
+    return { error: 'Error al procesar el reagendamiento' };
   }
 }
