@@ -9,7 +9,7 @@ interface Appointment {
   phone_number: string;
   service_type: string;
   appointment_date: string;
-  status: 'scheduled' | 'cancelled' | 'completed' | 'no_show';
+  status: 'pending' | 'scheduled' | 'cancelled' | 'completed' | 'no_show';
   reminder_sent: boolean;
   patients?: {
     full_name: string | null;
@@ -61,11 +61,11 @@ export default function AppointmentsPage() {
     }
   };
 
-  const updateStatus = async (appointmentId: string, status: string) => {
+  const updateStatus = async (appointmentId: string, newStatus: 'pending' | 'scheduled' | 'cancelled' | 'completed' | 'no_show') => {
     try {
       const { error } = await supabase
         .from('appointments')
-        .update({ status, updated_at: new Date().toISOString() })
+        .update({ status: newStatus, updated_at: new Date().toISOString() } as any)
         .eq('id', appointmentId);
 
       if (error) throw error;
@@ -87,6 +87,8 @@ export default function AppointmentsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'pending':
+        return 'bg-purple-500/20 text-purple-400';
       case 'scheduled':
         return 'bg-blue-500/20 text-blue-400';
       case 'completed':
@@ -102,6 +104,8 @@ export default function AppointmentsPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'pending':
+        return 'Pendiente';
       case 'scheduled':
         return 'Programada';
       case 'completed':
@@ -151,6 +155,14 @@ export default function AppointmentsPage() {
             }`}
           >
             Completadas
+          </button>
+          <button
+            onClick={() => setFilter('pending')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              filter === 'pending' ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Pendientes
           </button>
         </div>
       </div>
