@@ -35,7 +35,18 @@ BEGIN
 END $$;
 
 -- Update status CHECK constraint to include 'pending'
-DROP CONSTRAINT IF EXISTS appointments_status_check ON appointments;
+-- First, drop existing constraint if it exists
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'appointments_status_check' AND conrelid = 'appointments'::regclass
+  ) THEN
+    ALTER TABLE appointments DROP CONSTRAINT appointments_status_check;
+  END IF;
+END $$;
+
+-- Add the new constraint with all statuses
 ALTER TABLE appointments ADD CONSTRAINT appointments_status_check
   CHECK (status IN ('pending', 'scheduled', 'cancelled', 'completed', 'no_show'));
 
