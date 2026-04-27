@@ -53,7 +53,7 @@ export default function DashboardGuard({ children }: { children: React.ReactNode
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [router, supabase]);
+  }, [router]);
 
   // Mostrar pantalla de carga mientras verificamos autenticación
   if (isLoading) {
