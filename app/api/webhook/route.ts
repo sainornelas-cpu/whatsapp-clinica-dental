@@ -175,9 +175,11 @@ export async function POST(request: NextRequest) {
     // Load conversation history for context
     const history = await loadConversationHistory(conversation.id, 10);
 
-    // Prepare messages for OpenAI
+    // Prepare messages for OpenAI - add phone number to system prompt for context
+    const systemPromptWithPhone = `${agentPrompt}\n\nINFORMACIÓN DEL PACIENTE ACTUAL:\n- Número de teléfono: ${phoneNumber}`;
+
     const messages: any[] = [
-      { role: 'system', content: agentPrompt },
+      { role: 'system', content: systemPromptWithPhone },
       ...history,
       { role: 'user', content: messageText },
     ];
