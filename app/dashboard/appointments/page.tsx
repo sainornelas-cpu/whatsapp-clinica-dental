@@ -63,9 +63,14 @@ export default function AppointmentsPage() {
 
   const updateStatus = async (appointmentId: string, newStatus: 'pending' | 'scheduled' | 'cancelled' | 'completed' | 'no_show') => {
     try {
+      const updateData = {
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await supabase
         .from('appointments')
-        .update({ status: newStatus, updated_at: new Date().toISOString() } as any)
+        .update(updateData)
         .eq('id', appointmentId);
 
       if (error) throw error;
