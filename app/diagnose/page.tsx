@@ -6,6 +6,7 @@ export default function DiagnosePage() {
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
   const [supabaseTest, setSupabaseTest] = useState<{ status: string; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [browserInfo, setBrowserInfo] = useState<{ userAgent: string; url: string } | null>(null);
 
   useEffect(() => {
     // Check environment variables
@@ -14,6 +15,12 @@ export default function DiagnosePage() {
       'NEXT_PUBLIC_SUPABASE_ANON_KEY': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅ Configurada' : '❌ NO CONFIGURADA',
     };
     setEnvVars(vars);
+
+    // Get browser info (only on client)
+    setBrowserInfo({
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+    });
 
     // Test Supabase connection
     testSupabaseConnection();
@@ -116,16 +123,20 @@ export default function DiagnosePage() {
         {/* Browser Info */}
         <div className="bg-gray-800 rounded-xl p-6 mb-6">
           <h2 className="text-xl font-semibold text-white mb-4">Información del Navegador</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="p-3 bg-gray-700 rounded-lg">
-              <div className="text-gray-400">User Agent</div>
-              <div className="text-white mt-1 truncate">{navigator.userAgent}</div>
+          {browserInfo ? (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="p-3 bg-gray-700 rounded-lg">
+                <div className="text-gray-400">User Agent</div>
+                <div className="text-white mt-1 truncate">{browserInfo.userAgent}</div>
+              </div>
+              <div className="p-3 bg-gray-700 rounded-lg">
+                <div className="text-gray-400">URL Actual</div>
+                <div className="text-white mt-1 truncate">{browserInfo.url}</div>
+              </div>
             </div>
-            <div className="p-3 bg-gray-700 rounded-lg">
-              <div className="text-gray-400">URL Actual</div>
-              <div className="text-white mt-1 truncate">{window.location.href}</div>
-            </div>
-          </div>
+          ) : (
+            <div className="text-gray-400">Cargando información del navegador...</div>
+          )}
         </div>
 
         {/* Recommendations */}
