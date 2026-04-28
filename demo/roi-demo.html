@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clínica Dental Sonrisa - Demo ROI Bot WhatsApp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        .message-user {
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        .message-bot {
+            animation: slideInLeft 0.3s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .typing-indicator span {
+            animation: pulse 1.5s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .stat-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar {
+            animation: fillBar 1.5s ease-out forwards;
+        }
+
+        @keyframes fillBar {
+            from { width: 0%; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .number-option {
+            transition: all 0.2s ease;
+        }
+
+        .number-option:hover {
+            transform: scale(1.05);
+            background-color: #fef3c7;
+        }
+
+        .number-option.selected {
+            background-color: #f97316;
+            color: white;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-orange-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
+                    <span class="text-white text-xl">🦷</span>
+                </div>
+                <div>
+                    <h1 class="font-bold text-gray-800">Clínica Dental Sonrisa</h1>
+                    <p class="text-xs text-gray-500">Demo ROI - Asistente WhatsApp</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="switchTab('demo')" id="tab-demo" class="px-4 py-2 rounded-lg text-sm font-medium transition-all bg-orange-500 text-white">
+                    📱 Demo Chat
+                </button>
+                <button onclick="switchTab('roi')" id="tab-roi" class="px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gray-100 text-gray-600 hover:bg-gray-200">
+                    📊 ROI & Métricas
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Demo Chat Section -->
+    <section id="section-demo" class="max-w-7xl mx-auto px-4 py-8">
+        <div class="grid lg:grid-cols-3 gap-8">
+            <!-- Chat Container -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    <!-- Chat Header -->
+                    <div class="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                            <span class="text-2xl">🤖</span>
+                        </div>
+                        <div>
+                            <h2 class="font-semibold text-white">Sofia - Asistente Virtual</h2>
+                            <p class="text-orange-100 text-sm">En línea • Responde en segundos</p>
+                        </div>
+                    </div>
+
+                    <!-- Chat Messages -->
+                    <div id="chat-container" class="chat-container bg-gray-50 p-6 space-y-4">
+                        <!-- Messages will be added here -->
+                    </div>
+
+                    <!-- Typing Indicator -->
+                    <div id="typing-indicator" class="hidden px-6 py-3 bg-gray-50">
+                        <div class="flex items-center gap-2 text-gray-500">
+                            <div class="typing-indicator flex gap-1">
+                                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                            </div>
+                            <span class="text-sm">Sofia está escribiendo...</span>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quick-actions" class="p-4 bg-gray-50 border-t">
+                        <p class="text-sm text-gray-500 mb-3">Opciones rápidas:</p>
+                        <div class="flex flex-wrap gap-2" id="action-buttons">
+                            <button onclick="sendQuickMessage('hola')" class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50 transition">
+                                👋 Hola
+                            </button>
+                            <button onclick="sendQuickMessage('quiero agendar una cita')" class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50 transition">
+                                📅 Agendar cita
+                            </button>
+                            <button onclick="sendQuickMessage('mis citas')" class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50 transition">
+                                📋 Mis citas
+                            </button>
+                            <button onclick="sendQuickMessage('cancelar')" class="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50 transition">
+                                ❌ Cancelar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Input -->
+                    <div class="p-4 bg-white border-t">
+                        <div class="flex gap-3">
+                            <input
+                                type="text"
+                                id="message-input"
+                                placeholder="Escribe tu mensaje..."
+                                class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                onkeypress="if(event.key === 'Enter') sendMessage()"
+                            >
+                            <button onclick="sendMessage()" class="px-6 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition font-medium">
+                                Enviar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="space-y-6">
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="text-xl">⚡</span> Ventajas del Bot
+                    </h3>
+                    <ul class="space-y-3 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <span>Disponible 24/7, sin días libres</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <span>Responde en segundos, no minutos</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <span>Múltiples conversaciones simultáneas</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <span>Costo reducido vs personal</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-green-500 mt-1">✓</span>
+                            <span>Historial completo de pacientes</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-lg p-6 text-white">
+                    <h3 class="font-semibold mb-2">📈 Demo en Vivo</h3>
+                    <p class="text-orange-100 text-sm mb-4">
+                        Prueba el asistente simulando una conversación real de agendamiento.
+                    </p>
+                    <div class="bg-white/20 rounded-lg p-3">
+                        <p class="text-xs text-white/90">
+                            💡 Tip: Intenta agendar una cita para ver el flujo completo.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ROI Section -->
+    <section id="section-roi" class="max-w-7xl mx-auto px-4 py-8 hidden">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">Retorno de Inversión (ROI)</h2>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                Análisis de ahorro y beneficios financieros de implementar el asistente WhatsApp
+            </p>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="grid md:grid-cols-4 gap-6 mb-12">
+            <div class="stat-card bg-white rounded-2xl shadow-lg p-6 text-center">
+                <div class="text-4xl font-bold text-orange-500 mb-2">87%</div>
+                <div class="text-gray-500 text-sm">Reducción en tiempo de atención</div>
+            </div>
+            <div class="stat-card bg-white rounded-2xl shadow-lg p-6 text-center">
+                <div class="text-4xl font-bold text-green-500 mb-2">$45K</div>
+                <div class="text-gray-500 text-sm">Ahorro anual estimado</div>
+            </div>
+            <div class="stat-card bg-white rounded-2xl shadow-lg p-6 text-center">
+                <div class="text-4xl font-bold text-blue-500 mb-2">24/7</div>
+                <div class="text-gray-500 text-sm">Disponibilidad del servicio</div>
+            </div>
+            <div class="stat-card bg-white rounded-2xl shadow-lg p-6 text-center">
+                <div class="text-4xl font-bold text-purple-500 mb-2">3x</div>
+                <div class="text-gray-500 text-sm">ROI en primer año</div>
+            </div>
+        </div>
+
+        <!-- Cost Comparison -->
+        <div class="grid lg:grid-cols-2 gap-8 mb-12">
+            <div class="bg-white rounded-2xl shadow-lg p-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+                    <span class="text-2xl">💰</span> Comparativa de Costos (Anual)
+                </h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-gray-600">Recepcionista (8am-6pm, L-V)</span>
+                            <span class="font-semibold text-gray-800">$120,000</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="progress-bar h-full bg-red-400 rounded-full" style="width: 100%"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-gray-600">Bot WhatsApp (24/7)</span>
+                            <span class="font-semibold text-green-600">$15,000</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="progress-bar h-full bg-green-500 rounded-full" style="width: 12.5%"></div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t">
+                        <div class="flex justify-between">
+                            <span class="font-semibold text-gray-800">Ahorro Total</span>
+                            <span class="font-bold text-green-600 text-xl">$105,000/año</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+                    <span class="text-2xl">📊</span> Tiempo de Respuesta
+                </h3>
+
+                <div class="space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-gray-600">Llamada telefónica</span>
+                            <span class="font-semibold text-gray-800">3-10 minutos</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="progress-bar h-full bg-red-400 rounded-full" style="width: 100%"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-gray-600">WhatsApp tradicional</span>
+                            <span class="font-semibold text-gray-800">5-30 minutos</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="progress-bar h-full bg-orange-400 rounded-full" style="width: 80%"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-gray-600">Bot WhatsApp IA</span>
+                            <span class="font-semibold text-green-600">5-10 segundos</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="progress-bar h-full bg-green-500 rounded-full" style="width: 2%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-green-50 rounded-xl">
+                    <p class="text-green-800 text-sm">
+                        <strong>Resultado:</strong> 96% más rápido que atención tradicional
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Benefits -->
+        <div class="bg-white rounded-2xl shadow-lg p-8 mb-12">
+            <h3 class="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+                <span class="text-2xl">✨</span> Beneficios Adicionales
+            </h3>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="p-4 bg-blue-50 rounded-xl">
+                    <div class="text-3xl mb-3">📈</div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Aumento en Conversiones</h4>
+                    <p class="text-sm text-gray-600">35% más pacientes completan la reserva cuando pueden hacerlo por WhatsApp</p>
+                </div>
+
+                <div class="p-4 bg-purple-50 rounded-xl">
+                    <div class="text-3xl mb-3">🎯</div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Reducción en No-Shows</h4>
+                    <p class="text-sm text-gray-600">Recordatorios automáticos reducen inasistencias en 40%</p>
+                </div>
+
+                <div class="p-4 bg-pink-50 rounded-xl">
+                    <div class="text-3xl mb-3">🌟</div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Satisfacción del Cliente</h4>
+                    <p class="text-sm text-gray-600">NPS 78 en clínicas con automatización WhatsApp</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Investment Breakdown -->
+        <div class="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl shadow-lg p-8 text-white">
+            <h3 class="text-xl font-semibold mb-6 flex items-center gap-2">
+                <span class="text-2xl">💎</span> Desglose de Inversión
+            </h3>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h4 class="text-orange-400 font-semibold mb-4">Costos Iniciales (Único)</h4>
+                    <ul class="space-y-2 text-gray-300">
+                        <li class="flex justify-between">
+                            <span>Desarrollo del bot</span>
+                            <span>$8,000</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>Integración WhatsApp API</span>
+                            <span>$2,000</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>Integración Cal.com</span>
+                            <span>$1,000</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>Configuración inicial</span>
+                            <span>$1,000</span>
+                        </li>
+                        <li class="flex justify-between font-semibold pt-2 border-t border-gray-700">
+                            <span>Total Inversión</span>
+                            <span class="text-orange-400">$12,000</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="text-green-400 font-semibold mb-4">Costos Mensuales</h4>
+                    <ul class="space-y-2 text-gray-300">
+                        <li class="flex justify-between">
+                            <span>OpenAI API (GPT-4o)</span>
+                            <span>$200</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>WhatsApp API</span>
+                            <span>$150</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>Vercel Hosting</span>
+                            <span>$20</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>Supabase (Database)</span>
+                            <span>$25</span>
+                        </li>
+                        <li class="flex justify-between font-semibold pt-2 border-t border-gray-700">
+                            <span>Total Mensual</span>
+                            <span class="text-green-400">$395</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-8 p-6 bg-white/10 rounded-xl text-center">
+                <p class="text-gray-300 mb-2">ROI Primer Año</p>
+                <p class="text-5xl font-bold text-green-400">290%</p>
+                <p class="text-gray-400 mt-2">Inversión recuperada en <strong>4 meses</strong></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-12 py-6">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
+            <p>Clínica Dental Sonrisa - Demo ROI © 2026</p>
+        </div>
+    </footer>
+
+    <script>
+        // State
+        let conversationState = 'initial';
+        let selectedService = null;
+        let appointments = [];
+
+        // Bot responses
+        const botResponses = {
+            initial: `¡Hola! Soy Sofia, tu asistente virtual de Clínica Dental Sonrisa 🦷
+
+¿En qué puedo ayudarte hoy?
+
+1. Agendar una cita
+2. Ver mis citas
+3. Cancelar una cita
+4. Reagendar una cita
+
+Responde con el número o escribe lo que necesitas.`,
+
+            agendar: `¿Qué servicio necesitas?
+1. Limpieza dental ($800)
+2. Consulta general ($500)
+3. Blanqueamiento dental ($3,500)
+4. Ortodoncia ($800)
+5. Extracción dental ($1,200)
+6. Atención de urgencia ($600)
+
+Responde con el número o el nombre del servicio.`,
+
+            links: {
+                limpieza: 'https://cal.com/alfredo-sain-ornelas-almeida-e6i0wr/limpieza-dental-profesional',
+                consulta: 'https://cal.com/alfredo-sain-ornelas-almeida-e6i0wr/consulta-general',
+                blanqueamiento: 'https://cal.com/alfredo-sain-ornelas-almeida-e6i0wr/blanqueamiento-dental',
+                ortodoncia: 'https://cal.com/alfredo-sain-ornelas-almeida-e6i0wr/ortodoncia',
+                extracción: 'https://cal.com/alfredo-sain-ornelas-almeida-e6i0wr/extraccion-dental',
+                urgencia: 'https://cal.com/alfredo-sain-ornelas-almeida-e6i0wr/atencion-de-urgencia'
+            },
+
+            serviceNames: {
+                limpieza: 'Limpieza dental',
+                consulta: 'Consulta general',
+                blanqueamiento: 'Blanqueamiento dental',
+                ortodoncia: 'Ortodoncia',
+                extracción: 'Extracción dental',
+                urgencia: 'Atención de urgencia'
+            },
+
+            getServiceConfirmation(service) {
+                return `Perfecto, para tu ${this.serviceNames[service]}, por favor completa tu reserva aquí:
+
+${this.links[service]}
+
+Una vez que completes la reserva, te confirmaré los detalles.`;
+            },
+
+            misCitas: appointments.length === 0
+                ? 'Actualmente no tienes citas programadas. ¿Deseas agendar una?'
+                : `Tus citas programadas:\n\n${appointments.map((apt, i) =>
+                    `${i + 1}. ${apt.service} - ${apt.date}\n   Estado: ${apt.status}`
+                ).join('\n\n')}`,
+
+            cancel: appointments.length === 0
+                ? 'No tienes citas programadas para cancelar.'
+                : `Tus citas programadas:\n\n${appointments.map((apt, i) =>
+                    `${i + 1}. ${apt.service} - ${apt.date}`
+                ).join('\n\n')}\n\n¿Cuál cita quieres cancelar? Responde con el número.`,
+
+            cancelConfirmation(index) {
+                const cancelled = appointments.splice(index, 1)[0];
+                return `✅ Tu cita de ${cancelled.service} ha sido cancelada.\n\n¿Puedo ayudarte con algo más?`;
+            },
+
+            default: 'Lo siento, no entendí tu mensaje. Por favor, selecciona una opción:\n\n1. Agendar una cita\n2. Ver mis citas\n3. Cancelar una cita'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add initial bot message after a short delay
+            setTimeout(() => {
+                addBotMessage(botResponses.initial);
+            }, 500);
+        });
+
+        // Add message to chat
+        function addUserMessage(text) {
+            const container = document.getElementById('chat-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-user flex justify-end';
+            messageDiv.innerHTML = `
+                <div class="max-w-xs lg:max-w-md bg-orange-500 text-white px-4 py-3 rounded-2xl rounded-br-md">
+                    <p>${text}</p>
+                </div>
+            `;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addBotMessage(text) {
+            const container = document.getElementById('chat-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-bot flex justify-start';
+
+            // Convert newlines to <br> and format numbered options
+            const formattedText = text
+                .replace(/\n/g, '<br>')
+                .replace(/^(\d+)\.\s(.+)$/gm, '<div class="number-option bg-white border-2 border-orange-200 rounded-lg px-4 py-2 my-1 cursor-pointer font-medium text-orange-700" onclick="selectOption(\'$1\')"><span class="text-orange-500 font-bold mr-2">$1.</span>$2</div>');
+
+            messageDiv.innerHTML = `
+                <div class="max-w-xs lg:max-w-md bg-white px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
+                    <div class="text-gray-800">${formattedText}</div>
+                </div>
+            `;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showTyping() {
+            document.getElementById('typing-indicator').classList.remove('hidden');
+        }
+
+        function hideTyping() {
+            document.getElementById('typing-indicator').classList.add('hidden');
+        }
+
+        // Send message
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            addUserMessage(text);
+            processMessage(text);
+        }
+
+        function sendQuickMessage(text) {
+            document.getElementById('message-input').value = text;
+            sendMessage();
+        }
+
+        function selectOption(option) {
+            sendQuickMessage(option);
+        }
+
+        // Process user message
+        function processMessage(text) {
+            showTyping();
+
+            setTimeout(() => {
+                hideTyping();
+                const lowerText = text.toLowerCase();
+
+                // State machine
+                switch (conversationState) {
+                    case 'initial':
+                        if (lowerText.includes('agendar') || lowerText.includes('cita') || text === '1') {
+                            conversationState = 'selecting_service';
+                            addBotMessage(botResponses.agendar);
+                        } else if (lowerText.includes('ver') || lowerText.includes('mis citas') || text === '2') {
+                            addBotMessage(botResponses.misCitas);
+                        } else if (lowerText.includes('cancelar') || text === '3') {
+                            addBotMessage(botResponses.cancel);
+                        } else {
+                            addBotMessage(botResponses.initial);
+                        }
+                        break;
+
+                    case 'selecting_service':
+                        const serviceMap = {
+                            '1': 'limpieza', 'limpieza': 'limpieza',
+                            '2': 'consulta', 'consulta': 'consulta',
+                            '3': 'blanqueamiento', 'blanqueamiento': 'blanqueamiento',
+                            '4': 'ortodoncia', 'ortodoncia': 'ortodoncia',
+                            '5': 'extracción', 'extracción': 'extracción',
+                            '6': 'urgencia', 'urgencia': 'urgencia'
+                        };
+
+                        let service = null;
+                        for (const [key, value] of Object.entries(serviceMap)) {
+                            if (lowerText.includes(key)) {
+                                service = value;
+                                break;
+                            }
+                        }
+
+                        if (service) {
+                            selectedService = service;
+                            // Simulate adding appointment
+                            const futureDate = new Date();
+                            futureDate.setDate(futureDate.getDate() + 3);
+                            appointments.push({
+                                service: botResponses.serviceNames[service],
+                                date: futureDate.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
+                                status: 'Programada'
+                            });
+
+                            addBotMessage(botResponses.getServiceConfirmation(service));
+                            conversationState = 'initial';
+                        } else {
+                            addBotMessage(botResponses.agendar);
+                        }
+                        break;
+
+                    default:
+                        if (lowerText.includes('agendar') || lowerText.includes('cita')) {
+                            conversationState = 'selecting_service';
+                            addBotMessage(botResponses.agendar);
+                        } else {
+                            addBotMessage(botResponses.default);
+                            conversationState = 'initial';
+                        }
+                }
+            }, 1000 + Math.random() * 500);
+        }
+
+        // Switch tabs
+        function switchTab(tab) {
+            const demoSection = document.getElementById('section-demo');
+            const roiSection = document.getElementById('section-roi');
+            const tabDemo = document.getElementById('tab-demo');
+            const tabRoi = document.getElementById('tab-roi');
+
+            if (tab === 'demo') {
+                demoSection.classList.remove('hidden');
+                roiSection.classList.add('hidden');
+                tabDemo.className = 'px-4 py-2 rounded-lg text-sm font-medium transition-all bg-orange-500 text-white';
+                tabRoi.className = 'px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gray-100 text-gray-600 hover:bg-gray-200';
+            } else {
+                demoSection.classList.add('hidden');
+                roiSection.classList.remove('hidden');
+                tabRoi.className = 'px-4 py-2 rounded-lg text-sm font-medium transition-all bg-orange-500 text-white';
+                tabDemo.className = 'px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gray-100 text-gray-600 hover:bg-gray-200';
+            }
+        }
+    </script>
+</body>
+</html>
