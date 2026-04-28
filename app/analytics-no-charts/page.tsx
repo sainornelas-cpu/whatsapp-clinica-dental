@@ -1,5 +1,6 @@
 'use client';
 
+// Analytics page without Chart.js - v2 (fix build cache issue)
 import { useEffect, useState } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 
