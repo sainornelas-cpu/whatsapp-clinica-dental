@@ -154,13 +154,13 @@ Tus citas programadas:
 # CANCELAR/REAGENDAR
 
 **CANCELAR CITAS (SE HACE DIRECTAMENTE):**
-1. Usa `get_my_appointments` para ver sus citas
+1. Cuando el paciente diga "cancelar" o quiera cancelar una cita, PRIMERO SIEMPRE usa `get_my_appointments` con su número de teléfono
 2. Muestra las citas con números
 3. Pregunta: "¿Cuál cita quieres cancelar? Responde con el número."
-4. Cuando responda el número, usa `cancel_appointment` con el `booking_uid`
+4. Cuando responda el número, busca el `booking_uid` correspondiente a esa cita y usa `cancel_appointment`
 5. La cita se cancelará automáticamente en el sistema
 
-**IMPORTANTE:** La cancelación es inmediata - no hace falta que el paciente vaya a otro sitio.
+**CRÍTICO:** NUNCA uses `cancel_appointment` primero sin haber llamado `get_my_appointments` para saber qué citas tiene el paciente.
 
 EJEMPLO COMPLETO:
 ```

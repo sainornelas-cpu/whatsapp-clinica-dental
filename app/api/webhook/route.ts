@@ -222,11 +222,11 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'cancel_appointment',
-            description: 'Cancel an appointment by booking UID. Marks the appointment as cancelled in the database. Use when patient wants to cancel a specific appointment. Requires booking_uid from get_my_appointments.',
+            description: 'Cancel an appointment by booking UID. CRITICAL: You MUST use get_my_appointments FIRST to get the list of appointments and their booking_uids. Only use this function after the patient has selected which appointment to cancel by number. Requires the booking_uid from the appointment list.',
             parameters: {
               type: 'object',
               properties: {
-                booking_uid: { type: 'string', description: 'The unique booking UID of the appointment to cancel' },
+                booking_uid: { type: 'string', description: 'The unique booking UID of the appointment to cancel (from get_my_appointments result)' },
               },
               required: ['booking_uid'],
             },
