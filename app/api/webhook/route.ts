@@ -222,13 +222,13 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'cancel_appointment',
-            description: 'Cancel an appointment by booking UID. CRITICAL: You MUST use get_my_appointments FIRST to get the list of appointments and their booking_uids. Only use this function after the patient has selected which appointment to cancel by number. Requires the booking_uid from the appointment list.',
+            description: 'Provide Cal.com link for patient to manually cancel their appointment. SIMPLE METHOD: Show appointment options with Cal.com booking links - patient cancels directly from Cal.com.',
             parameters: {
               type: 'object',
               properties: {
-                booking_uid: { type: 'string', description: 'The unique booking UID of the appointment to cancel (from get_my_appointments result)' },
+                phone: { type: 'string', description: 'Patient phone number (from context)' },
               },
-              required: ['booking_uid'],
+              required: ['phone'],
             },
           },
         },
@@ -236,13 +236,13 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'reschedule_appointment',
-            description: 'Provide instructions to reschedule an appointment. Returns the Cal.com link for the patient to reschedule.',
+            description: 'Provide Cal.com links for patient to manually reschedule their appointment. SIMPLE METHOD: Show appointment options with Cal.com booking links - patient reschedules directly from Cal.com.',
             parameters: {
               type: 'object',
               properties: {
-                booking_uid: { type: 'string', description: 'The unique booking UID of the appointment to reschedule' },
+                phone: { type: 'string', description: 'Patient phone number (from context)' },
               },
-              required: ['booking_uid'],
+              required: ['phone'],
             },
           },
         },
@@ -395,90 +395,74 @@ async function getMyAppointments(params: any) {
 
 async function cancelAppointment(params: any) {
   try {
-    const { booking_uid } = params;
+    const { phone } = params;
 
-    // Get appointment details first
-    const { data: appointment, error: findError } = await supabaseService
+    console.log(`Getting appointments for cancellation, phone: ${phone}`);
+
+    // Get all appointments for this patient
+    const { data: appointments, error: findError } = await supabaseService
       .from('appointments')
       .select('*')
-      .eq('cal_booking_uid', booking_uid)
-      .single();
+      .eq('phone_number', phone)
+      .in('status', ['scheduled', 'pending'])
+      .order('appointment_date', { ascending: true });
 
-    if (findError || !appointment) {
-      return { error: 'No se encontró la cita.' };
+    if (findError) throw findError;
+
+    if (!appointments || appointments.length === 0) {
+      return { error: 'No tienes citas programadas.' };
     }
 
-    // Cancel the appointment in database
-    const { error: updateError } = await supabaseService
-      .from('appointments')
-      .update({
-        status: 'cancelled',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('cal_booking_uid', booking_uid);
-
-    if (updateError) {
-      console.error('Error cancelling appointment in database:', updateError);
-      return { error: 'Error al cancelar la cita.' };
-    }
-
-    console.log(`Appointment ${booking_uid} cancelled successfully`);
-
-    // Extract booking link from notes for Cal.com cancellation
-    const bookingLink = appointment.notes?.match(/https?:\/\/[^\s]+/)?.[0];
-
-    let message = `✅ Tu cita de ${appointment.service_type} ha sido cancelada.`;
-
-    if (bookingLink) {
-      message += `\n\n💡 Nota: También puedes cancelar en Cal.com usando este link si lo necesitas:\n${bookingLink}`;
-    }
-
-    message += '\n\n¿Puedo ayudarte con algo más?';
-
+    // Return appointments with their Cal.com links for manual cancellation
     return {
       success: true,
-      cancelled: true,
-      service_type: appointment.service_type,
-      message,
+      appointments: appointments.map((apt: any) => ({
+        id: apt.id,
+        service_type: apt.service_type,
+        appointment_date: apt.appointment_date,
+        status: apt.status === 'pending' ? 'pendiente de confirmación' : 'confirmada',
+        booking_link: apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null,
+      })),
     };
   } catch (error) {
-    console.error('Error cancelling appointment:', error);
-    return { error: 'Error al procesar la cancelación' };
+    console.error('Error getting appointments for cancellation:', error);
+    return { error: 'Error al obtener tus citas.' };
   }
 }
 
 async function rescheduleAppointment(params: any) {
   try {
-    const { booking_uid } = params;
+    const { phone } = params;
 
-    // Get appointment details
-    const { data: appointment, error } = await supabaseService
+    console.log(`Getting appointments for rescheduling, phone: ${phone}`);
+
+    // Get all appointments for this patient
+    const { data: appointments, error: findError } = await supabaseService
       .from('appointments')
       .select('*')
-      .eq('cal_booking_uid', booking_uid)
-      .single();
+      .eq('phone_number', phone)
+      .in('status', ['scheduled', 'pending'])
+      .order('appointment_date', { ascending: true });
 
-    if (error || !appointment) {
-      return { error: 'No se encontró la cita.' };
+    if (findError) throw findError;
+
+    if (!appointments || appointments.length === 0) {
+      return { error: 'No tienes citas programadas.' };
     }
 
-    // Extract booking link from notes
-    const bookingLink = appointment.notes?.match(/https?:\/\/[^\s]+/)?.[0];
-
-    if (bookingLink) {
-      return {
-        success: true,
-        message: `Para reagendar tu cita de ${appointment.service_type}, usa este link: ${bookingLink}`,
-        bookingLink,
-      };
-    } else {
-      return {
-        success: true,
-        message: 'Para reagendar tu cita, por favor contáctanos directamente o revisa el email de confirmación de Cal.com.',
-      };
-    }
+    // Return appointments with their Cal.com links for manual rescheduling
+    return {
+      success: true,
+      appointments: appointments.map((apt: any) => ({
+        id: apt.id,
+        service_type: apt.service_type,
+        appointment_date: apt.appointment_date,
+        status: apt.status === 'pending' ? 'pendiente de confirmación' : 'confirmada',
+        booking_link: apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null,
+      })),
+    };
   } catch (error) {
-    console.error('Error rescheduling appointment:', error);
-    return { error: 'Error al procesar el reagendamiento' };
+    console.error('Error getting appointments for rescheduling:', error);
+    return { error: 'Error al obtener tus citas.' };
   }
 }
