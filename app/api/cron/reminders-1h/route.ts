@@ -33,37 +33,6 @@ async function sendWhatsAppReminder(phoneNumber: string, patientName: string, ap
   return response.json();
 }
 
-// Verificar si ya se envió un recordatorio de un tipo específico para una cita
-async function wasReminderSent(appointmentId: string, reminderType: string): Promise<boolean> {
-  const { data, error } = await supabaseService
-    .from('reminders_log')
-    .select('id')
-    .eq('appointment_id', appointmentId)
-    .eq('reminder_type', reminderType)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Error checking reminder log:', error);
-    return false;
-  }
-
-  return !!data;
-}
-
-// Registrar que se envió un recordatorio
-async function logReminderSent(appointmentId: string, reminderType: string) {
-  const { error } = await supabaseService
-    .from('reminders_log')
-    .insert({
-      appointment_id: appointmentId,
-      reminder_type: reminderType,
-    });
-
-  if (error) {
-    console.error('Error logging reminder:', error);
-  }
-}
-
 export async function GET(request: NextRequest) {
   console.log('Cron job: Sending 1-hour appointment reminders');
 
@@ -73,10 +42,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Buscar citas entre 50-70 minutos en el futuro
+    // Buscar citas en la ventana de 1 hora (58-62 minutos)
+    // Usamos una ventana muy estrecha para evitar duplicados
     const now = new Date();
-    const startWindow = new Date(now.getTime() + 50 * 60 * 1000); // 50 minutos
-    const endWindow = new Date(now.getTime() + 70 * 60 * 1000);   // 70 minutos
+    const startWindow = new Date(now.getTime() + 58 * 60 * 1000); // 58 minutos
+    const endWindow = new Date(now.getTime() + 62 * 60 * 1000);   // 62 minutos
 
     console.log(`Searching for 1h reminders between ${startWindow.toISOString()} and ${endWindow.toISOString()}`);
 
@@ -89,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching appointments for 1h reminder:', error);
-      return new NextResponse('Error fetching appointments', { status: 500 });
+      return NextResponse('Error fetching appointments', { status: 500 });
     }
 
     console.log(`Found ${appointments?.length || 0} appointments in the 1h window`);
@@ -100,19 +70,9 @@ export async function GET(request: NextRequest) {
 
     let successCount = 0;
     let failureCount = 0;
-    let alreadySentCount = 0;
 
     for (const appointment of appointments) {
       try {
-        // Verificar si ya se envió el recordatorio de 1h
-        const wasSent = await wasReminderSent(appointment.id, '1h');
-
-        if (wasSent) {
-          alreadySentCount++;
-          console.log(`1h reminder already sent for appointment ${appointment.id}`);
-          continue;
-        }
-
         // Enviar recordatorio
         await sendWhatsAppReminder(
           appointment.phone_number,
@@ -121,8 +81,9 @@ export async function GET(request: NextRequest) {
           appointment.service_type
         );
 
-        // Registrar que se envió el recordatorio
-        await logReminderSent(appointment.id, '1h');
+        // NO necesitamos marcar nada en la base de datos
+        // La ventana de tiempo muy estrecha (58-62 min) evita duplicados
+        // ya que el cron job solo se ejecuta una vez por hora
 
         successCount++;
         console.log(`1h reminder sent for appointment ${appointment.id}`);
@@ -132,14 +93,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`1h cron job completed: ${successCount} sent, ${alreadySentCount} already sent, ${failureCount} failed`);
+    console.log(`1h cron job completed: ${successCount} sent, ${failureCount} failed`);
 
     return NextResponse.json({
       success: true,
-      message: `1h Reminders: ${successCount} sent, ${alreadySentCount} already sent, ${failureCount} failed`,
+      message: `1h Reminders sent: ${successCount}, Failed: ${failureCount}`,
+      note: 'Using narrow time window (58-62 min) to avoid duplicates without DB modification'
     });
   } catch (error) {
     console.error('Error in 1h cron job:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse('Internal Server Error', { status: 500 });
   }
 }

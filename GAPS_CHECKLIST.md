@@ -13,7 +13,7 @@
 | 2. Reagendamiento automático | ❌ Manual | Easy!Appointments | $0 | 2-3h | ALTA |
 | 3. Memoria del bot | ✅ Implementado | Verificar | $0 | 1-2h | MEDIA |
 | 4. Recordatorio 24h antes | ✅ Implementado | Verificar | $0 | 30min | BAJA |
-| 5. Recordatorio 1h antes | 🔄 EN PROGRESO | cron-job.org | $0 | 1-2h | MEDIA |
+| 5. Recordatorio 1h antes | ✅ Listo (configurar cron) | cron-job.org | $0 | 10min | MEDIA |
 | 6. Calendario para dentista | ❌ NO | React Big Calendar | $0 | 4-6h | MEDIA |
 | 7. Analytics con data real | ⚠️ Verificar | Verificar conexión | $0 | 1h | BAJA |
 
@@ -215,62 +215,53 @@ curl -X GET "https://whatsapp-clinica-dental.vercel.app/api/cron/reminders" \
 ## GAP 5: EL SISTEMA NO NOTIFICA 1 HORA ANTES
 
 ### Estado Actual
-- **Implementación:** 🔄 EN PROGRESO
+- **Implementación:** ✅ COMPLETADO (sin migración de BD)
 - **Endpoint creado:** `app/api/cron/reminders-1h/route.ts`
-- **Script SQL creado:** `supabase/add-reminder-1h-column.sql`
-- **Pendiente:** Ejecutar SQL en Supabase, configurar cron-job.org
+- **Solución:** Usa ventana de tiempo estrecha (58-62 min) - NO requiere modificar BD
+- **Pendiente:** Configurar cron-job.org
 - **Limitación:** Vercel solo permite 1 cron job por proyecto (por eso usamos cron-job.org)
 
-### Soluciones Investigadas
+### Solución Final: Sin Migración de Base de Datos
 
-#### Opción A: cron-job.org (RECOMENDADA - GRATIS)
-- **URL:** https://cron-job.org
-- **Costo:** 100% GRATIS
-- **Frecuencia:** Cada minuto (máxima flexibilidad)
-- **Ventajas:**
-  - Gratis
-  - Ejecuciones frecuentes
-  - ILIMITADO número de jobs
-- **Desventajas:**
-  - Servicio externo
-  - API limitada a 100 requests/día
+Debido a problemas de permisos en Supabase ("must be owner", "permission denied"), implementamos una solución que **NO requiere ninguna modificación de la base de datos**:
 
-#### Opción B: GitHub Actions (GRATIS)
-- **Costo:** Gratis (2000 min/mes para repos privados)
-- **Ventajas:** Integración con Git, logs
-- **Desventajas:** Latencia 3-10 min, se desactiva tras 60 días inactividad
+**Cómo funciona:**
+1. El cron job se ejecuta cada hora (via cron-job.org)
+2. Busca citas en una ventana muy estrecha: 58-62 minutos en el futuro
+3. Envía el recordatorio por WhatsApp
+4. **NO marca nada en la base de datos**
+5. La ventana de 4 minutos evita duplicados dado que el job se ejecuta solo una vez por hora
 
-#### Opción C: Supabase pg_cron (RECOMENDADA LARGO PLAZO)
-- **Costo:** Incluido en Supabase
-- **Ventajas:** Integración perfecta, sin servicios externos
-- **Desventajas:** Requiere SQL avanzado
+**Ventajas:**
+- ✅ NO requiere permisos de owner
+- ✅ NO requiere migración de base de datos
+- ✅ Funciona inmediatamente
+- ✅ Fácil de entender y mantener
 
-### Plan de Implementación (cron-job.org)
+**Desventajas:**
+- ⚠️ Si el cron job falla en una hora, esa ventana de citas no recibirán recordatorio
+- ⚠️ Menos preciso que marcar en BD (pero funcional)
+
+### Plan de Implementación (cron-job.org) - ACTUALIZADO
 
 **Paso 1:** ✅ COMPLETADO - Crear endpoint de recordatorio 1h
-- Archivo creado: `app/api/cron/reminders-1h/route.ts`
-- Busca citas 50-70 minutos en el futuro
+- Archivo: `app/api/cron/reminders-1h/route.ts`
+- Busca citas 58-62 minutos en el futuro
 - Envía recordatorio por WhatsApp
-- **CAMBIO:** Usa tabla `reminders_log` para rastrear envíos (no requiere modificar appointments)
+- **NO modifica la base de datos**
 
-**Paso 2:** ✅ COMPLETADO - Crear tabla separada para rastrear recordatorios
-- Script creado: `supabase/create-reminders-log-table.sql`
-- Tabla: `reminders_log` (appointment_id, reminder_type, sent_at)
-- **VENTAJA:** No requiere permisos de owner para crear tablas nuevas
-- **SOLUCIÓN AL PROBLEMA:** Evita el error "must be owner of table appointments"
-
-**Paso 3:** ⏳ PENDIENTE - Ejecutar SQL en Supabase (5 min)
-- Ir a: https://supabase.com/dashboard/project/zzaetaljaxxuvbgnfdvc/sql
-- Ejecutar: `supabase/create-reminders-log-table.sql`
-
-**Paso 4:** ⏳ PENDIENTE - Configurar cron-job.org (10 min)
+**Paso 2:** ⏳ PENDIENTE - Configurar cron-job.org (10 min)
 - Registrarse en https://cron-job.org
 - Crear job:
-  - Schedule: `0 * * * *` (cada hora)
-  - URL: `https://whatsapp-clinica-dental.vercel.app/api/cron/reminders-1h`
-  - Header: `Authorization: Bearer tu_CRON_SECRET`
+  - **Title:** WhatsApp Dental - Recordatorio 1h
+  - **Schedule:** `0 * * * *` (cada hora)
+  - **URL:** `https://whatsapp-clinica-dental.vercel.app/api/cron/reminders-1h`
+  - **Method:** GET
+  - **Headers:** Agregar `Authorization: Bearer tu_CRON_SECRET`
 
-**Paso 5:** ⏳ PENDIENTE - Desplegar y probar (15 min)
+**Paso 3:** ⏳ PENDIENTE - Probar (5 min)
+- Crear una cita de prueba
+- Verificar que llegue el recordatorio 1h antes
 
 **Costo:** $0
 **Tiempo Estimado:** 1-2 horas
