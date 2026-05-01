@@ -13,7 +13,7 @@
 | 2. Reagendamiento automático | ❌ Manual | Easy!Appointments | $0 | 2-3h | ALTA |
 | 3. Memoria del bot | ✅ Implementado | Verificar | $0 | 1-2h | MEDIA |
 | 4. Recordatorio 24h antes | ✅ Implementado | Verificar | $0 | 30min | BAJA |
-| 5. Recordatorio 1h antes | ❌ NO | cron-job.org | $0 | 1-2h | MEDIA |
+| 5. Recordatorio 1h antes | 🔄 EN PROGRESO | cron-job.org | $0 | 1-2h | MEDIA |
 | 6. Calendario para dentista | ❌ NO | React Big Calendar | $0 | 4-6h | MEDIA |
 | 7. Analytics con data real | ⚠️ Verificar | Verificar conexión | $0 | 1h | BAJA |
 
@@ -215,8 +215,11 @@ curl -X GET "https://whatsapp-clinica-dental.vercel.app/api/cron/reminders" \
 ## GAP 5: EL SISTEMA NO NOTIFICA 1 HORA ANTES
 
 ### Estado Actual
-- **Implementación:** ❌ NO IMPLEMENTADO
-- **Limitación:** Vercel solo permite 1 cron job por proyecto
+- **Implementación:** 🔄 EN PROGRESO
+- **Endpoint creado:** `app/api/cron/reminders-1h/route.ts`
+- **Script SQL creado:** `supabase/add-reminder-1h-column.sql`
+- **Pendiente:** Ejecutar SQL en Supabase, configurar cron-job.org
+- **Limitación:** Vercel solo permite 1 cron job por proyecto (por eso usamos cron-job.org)
 
 ### Soluciones Investigadas
 
@@ -244,25 +247,25 @@ curl -X GET "https://whatsapp-clinica-dental.vercel.app/api/cron/reminders" \
 
 ### Plan de Implementación (cron-job.org)
 
-**Paso 1:** Crear endpoint de recordatorio 1h (30 min)
-```typescript
-// Crear: app/api/cron/reminders-1h/route.ts
-// Similar a reminders/route.ts pero busca citas 50-70 min en el futuro
-```
+**Paso 1:** ✅ COMPLETADO - Crear endpoint de recordatorio 1h
+- Archivo creado: `app/api/cron/reminders-1h/route.ts`
+- Busca citas 50-70 minutos en el futuro
+- Envía recordatorio por WhatsApp
+- Marca `reminder_1h_sent: true`
 
-**Paso 2:** Agregar columna a base de datos (5 min)
-```sql
-ALTER TABLE appointments ADD COLUMN reminder_1h_sent BOOLEAN DEFAULT FALSE;
-```
+**Paso 2:** ✅ COMPLETADO - Agregar columna a base de datos
+- Script creado: `supabase/add-reminder-1h-column.sql`
+- Columna: `reminder_1h_sent` BOOLEAN DEFAULT FALSE
+- Índice creado para búsquedas rápidas
 
-**Paso 3:** Configurar cron-job.org (10 min)
+**Paso 3:** ⏳ PENDIENTE - Configurar cron-job.org (10 min)
 - Registrarse en https://cron-job.org
 - Crear job:
   - Schedule: `0 * * * *` (cada hora)
   - URL: `https://whatsapp-clinica-dental.vercel.app/api/cron/reminders-1h`
   - Header: `Authorization: Bearer tu_CRON_SECRET`
 
-**Paso 4:** Desplegar y probar (15 min)
+**Paso 4:** ⏳ PENDIENTE - Desplegar y probar (15 min)
 
 **Costo:** $0
 **Tiempo Estimado:** 1-2 horas
