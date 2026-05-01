@@ -12,6 +12,17 @@ interface AdminSetupResult {
   createUserError?: string;
 }
 
+interface AuthCheckResult {
+  success?: boolean;
+  error?: string;
+  envConfigured?: boolean;
+  totalUsers?: number;
+  adminUser?: any;
+  dbError?: string;
+  dbErrorCode?: string;
+  patientsCount?: number;
+}
+
 export default function DiagnosePage() {
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
   const [supabaseTest, setSupabaseTest] = useState<{ status: string; message: string } | null>(null);
@@ -19,6 +30,8 @@ export default function DiagnosePage() {
   const [browserInfo, setBrowserInfo] = useState<{ userAgent: string; url: string } | null>(null);
   const [adminSetup, setAdminSetup] = useState<AdminSetupResult | null>(null);
   const [settingUpAdmin, setSettingUpAdmin] = useState(false);
+  const [authCheck, setAuthCheck] = useState<AuthCheckResult | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(false);
 
   useEffect(() => {
     // Check environment variables
@@ -96,6 +109,21 @@ export default function DiagnosePage() {
     }
   };
 
+  const checkAuthServer = async () => {
+    setCheckingAuth(true);
+    setAuthCheck(null);
+
+    try {
+      const res = await fetch('/api/auth/check');
+      const data = await res.json();
+      setAuthCheck(data);
+    } catch (error: any) {
+      setAuthCheck({ error: error.message, success: false });
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 p-8">
       <div className="max-w-4xl mx-auto">
@@ -147,15 +175,79 @@ export default function DiagnosePage() {
           ) : null}
 
           {supabaseTest?.status === 'success' && (
-            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <p className="text-gray-300 mb-3">Si no puedes acceder al dashboard, el usuario administrador puede no existir en Supabase.</p>
-              <button
-                onClick={setupAdmin}
-                disabled={settingUpAdmin}
-                className="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {settingUpAdmin ? 'Configurando...' : 'Crear/Verificar Usuario Admin'}
-              </button>
+            <div className="mt-4 space-y-3">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <p className="text-gray-300 mb-3">Diagnóstico de autenticación:</p>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={checkAuthServer}
+                    disabled={checkingAuth}
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {checkingAuth ? 'Verificando...' : 'Verificar Autenticación (Servidor)'}
+                  </button>
+                  <button
+                    onClick={setupAdmin}
+                    disabled={settingUpAdmin}
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {settingUpAdmin ? 'Configurando...' : 'Crear Usuario Admin'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {authCheck && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              authCheck.success ? 'bg-green-500/20 border border-green-500/50' : 'bg-red-500/20 border border-red-500/50'
+            }`}>
+              <h3 className={`font-semibold mb-2 ${authCheck.success ? 'text-green-400' : 'text-red-400'}`}>
+                {authCheck.success ? '✓ Verificación del Servidor' : '✗ Error en Servidor'}
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Variables configuradas:</span>
+                  <span className={authCheck.envConfigured ? 'text-green-400' : 'text-red-400'}>
+                    {authCheck.envConfigured ? 'Sí' : 'No'}
+                  </span>
+                </div>
+                {authCheck.totalUsers !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Total usuarios:</span>
+                    <span className="text-white">{authCheck.totalUsers}</span>
+                  </div>
+                )}
+                {authCheck.patientsCount !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Pacientes en DB:</span>
+                    <span className="text-white">{authCheck.patientsCount}</span>
+                  </div>
+                )}
+                {authCheck.adminUser && (
+                  <div className="mt-2 p-3 bg-gray-800 rounded">
+                    <p className="text-gray-400 text-sm mb-1">Usuario Admin:</p>
+                    <p className="text-white text-sm">ID: {authCheck.adminUser.id}</p>
+                    <p className="text-white text-sm">Email: {authCheck.adminUser.email}</p>
+                    <p className="text-sm">Confirmado: <span className={authCheck.adminUser.confirmed ? 'text-green-400' : 'text-yellow-400'}>
+                      {authCheck.adminUser.confirmed ? 'Sí' : 'No'}
+                    </span></p>
+                    {authCheck.adminUser.lastSignIn && (
+                      <p className="text-white text-sm">Último login: {new Date(authCheck.adminUser.lastSignIn).toLocaleString()}</p>
+                    )}
+                  </div>
+                )}
+                {authCheck.dbError && (
+                  <div className="mt-2 p-2 bg-red-900 rounded text-red-200">
+                    Error DB ({authCheck.dbErrorCode}): {authCheck.dbError}
+                  </div>
+                )}
+                {authCheck.error && (
+                  <div className="mt-2 p-2 bg-red-900 rounded text-red-200">
+                    Error: {authCheck.error}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
