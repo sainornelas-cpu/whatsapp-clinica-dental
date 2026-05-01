@@ -2,11 +2,23 @@
 
 import { useEffect, useState } from 'react';
 
+interface AdminSetupResult {
+  success?: boolean;
+  error?: string;
+  adminExists?: boolean;
+  userCreated?: boolean;
+  createdUser?: any;
+  adminUser?: any;
+  createUserError?: string;
+}
+
 export default function DiagnosePage() {
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
   const [supabaseTest, setSupabaseTest] = useState<{ status: string; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [browserInfo, setBrowserInfo] = useState<{ userAgent: string; url: string } | null>(null);
+  const [adminSetup, setAdminSetup] = useState<AdminSetupResult | null>(null);
+  const [settingUpAdmin, setSettingUpAdmin] = useState(false);
 
   useEffect(() => {
     // Check environment variables
@@ -69,6 +81,21 @@ export default function DiagnosePage() {
     }
   };
 
+  const setupAdmin = async () => {
+    setSettingUpAdmin(true);
+    setAdminSetup(null);
+
+    try {
+      const res = await fetch('/api/admin/setup');
+      const data = await res.json();
+      setAdminSetup(data);
+    } catch (error: any) {
+      setAdminSetup({ error: error.message });
+    } finally {
+      setSettingUpAdmin(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 p-8">
       <div className="max-w-4xl mx-auto">
@@ -118,6 +145,53 @@ export default function DiagnosePage() {
               </div>
             </div>
           ) : null}
+
+          {supabaseTest?.status === 'success' && (
+            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-gray-300 mb-3">Si no puedes acceder al dashboard, el usuario administrador puede no existir en Supabase.</p>
+              <button
+                onClick={setupAdmin}
+                disabled={settingUpAdmin}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {settingUpAdmin ? 'Configurando...' : 'Crear/Verificar Usuario Admin'}
+              </button>
+            </div>
+          )}
+
+          {adminSetup && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              adminSetup.success ? 'bg-green-500/20 border border-green-500/50' : 'bg-red-500/20 border border-red-500/50'
+            }`}>
+              <h3 className={`font-semibold mb-2 ${adminSetup.success ? 'text-green-400' : 'text-red-400'}`}>
+                {adminSetup.success ? '✓ Configuración del Admin' : '✗ Error'}
+              </h3>
+              {adminSetup.adminExists !== undefined && (
+                <p className="text-gray-300">Usuario existe: <span className={adminSetup.adminExists ? 'text-green-400' : 'text-yellow-400'}>
+                  {adminSetup.adminExists ? 'Sí' : 'No'}
+                </span></p>
+              )}
+              {adminSetup.userCreated && (
+                <p className="text-green-400 mt-2">✓ Usuario creado exitosamente</p>
+              )}
+              {adminSetup.error && (
+                <p className="text-red-400 mt-2">Error: {adminSetup.error}</p>
+              )}
+              {adminSetup.createUserError && (
+                <p className="text-yellow-400 mt-2">Error creación: {adminSetup.createUserError}</p>
+              )}
+              {(adminSetup.adminExists || adminSetup.userCreated) && (
+                <div className="mt-3 p-3 bg-gray-800 rounded">
+                  <p className="text-gray-400 text-sm">Credenciales:</p>
+                  <p className="text-white">Email: sain.ornelas@uabc.edu.mx</p>
+                  <p className="text-white">Password: Dental2026!</p>
+                  <a href="/login" className="inline-block mt-2 text-orange-400 hover:underline">
+                    Ir a Login →
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Browser Info */}
