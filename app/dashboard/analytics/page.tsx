@@ -379,8 +379,8 @@ function KPICard({ title, value, icon, trend, subtitle, color }: any) {
         <span className="text-2xl">{icon}</span>
       </div>
       <div className="text-3xl font-bold text-white mb-1">{value}</div>
-      {trend && <div className={trend.startsWith('+') ? 'text-green-400' : 'text-red-400'} text-sm">{trend}</div>}
-      {subtitle && <div className={colorClasses[color as keyof typeof colorClasses]} text-sm">{subtitle}</div>}
+      {trend && <div className={trend.startsWith('+') ? 'text-green-400' : 'text-red-400'} text-sm>{trend}</div>}
+      {subtitle && <div className={colorClasses[color as keyof typeof colorClasses]} text-sm>{subtitle}</div>}
     </div>
   );
 }
