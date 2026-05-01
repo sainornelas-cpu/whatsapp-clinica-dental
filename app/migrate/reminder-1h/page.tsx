@@ -60,22 +60,40 @@ export default function MigrateReminder1hPage() {
             </ol>
 
             <div className="bg-gray-800 rounded-lg p-4 mb-4">
+              <p className="text-gray-400 text-sm mb-2">Copia este SQL y pégalo en el editor:</p>
               <pre className="text-sm text-green-400">
-                ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reminder_1h_sent BOOLEAN DEFAULT FALSE;
+                DO $$
+                BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'appointments' AND column_name = 'reminder_1h_sent'
+                  ) THEN
+                    ALTER TABLE appointments ADD COLUMN reminder_1h_sent BOOLEAN DEFAULT FALSE;
+                  END IF;
+                END $$;
               </pre>
             </div>
 
             <button
               onClick={() => window.open('https://supabase.com/dashboard/project/zzaetaljaxxuvbgnfdvc/sql', '_blank')}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg"
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg mb-4"
             >
               Abrir Supabase SQL Editor
             </button>
 
-            <div className="mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-blue-400 text-sm font-medium mb-2">⚠️ IMPORTANTE:</p>
+              <ul className="text-gray-300 text-sm space-y-1 list-disc list-inside">
+                <li>NO ejecutes scripts con <code className="text-red-400">DROP</code> o <code className="text-red-400">DELETE</code></li>
+                <li>Solo usa el SQL de arriba que AGREGA una columna</li>
+                <li>El SQL que mostraste antes tiene <code className="text-red-400">DROP INDEX</code> que requiere permisos especiales</li>
+              </ul>
+            </div>
+
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
               <p className="text-red-400 text-sm">
-                <strong>Error de permisos:</strong> Si ves "must be owner of table",
-                asegúrate de estar logueado con la cuenta correcta del dueño del proyecto.
+                <strong>Si sigue diciendo "must be owner":</strong><br/>
+                El problema es que estás ejecutando SQL con comandos DROP. Usa SOLO el SQL de arriba que solo AGREGA la columna sin eliminar nada.
               </p>
             </div>
           </div>
