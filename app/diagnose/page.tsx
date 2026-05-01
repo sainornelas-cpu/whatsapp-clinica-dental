@@ -32,6 +32,7 @@ export default function DiagnosePage() {
   const [settingUpAdmin, setSettingUpAdmin] = useState(false);
   const [authCheck, setAuthCheck] = useState<AuthCheckResult | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(false);
+  const [showSql, setShowSql] = useState(false);
 
   useEffect(() => {
     // Check environment variables
@@ -302,6 +303,92 @@ export default function DiagnosePage() {
             </div>
           ) : (
             <div className="text-gray-400">Cargando información del navegador...</div>
+          )}
+        </div>
+
+        {/* SQL Setup */}
+        <div className="bg-gray-800 rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white">🔧 Configurar RLS en Supabase</h2>
+            <button
+              onClick={() => setShowSql(!showSql)}
+              className="text-orange-400 hover:text-orange-300 text-sm"
+            >
+              {showSql ? 'Ocultar' : 'Mostrar'} SQL
+            </button>
+          </div>
+
+          <p className="text-gray-400 mb-4">
+            Si el dashboard no funciona, necesitas ejecutar este SQL en Supabase para configurar las políticas de seguridad (RLS).
+          </p>
+
+          {showSql && (
+            <div className="space-y-4">
+              <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">{`-- Habilitar RLS en todas las tablas
+ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+-- Eliminar políticas existentes
+DROP POLICY IF EXISTS "Authenticated users can read patients" ON patients;
+DROP POLICY IF EXISTS "Authenticated users can insert patients" ON patients;
+DROP POLICY IF EXISTS "Authenticated users can read appointments" ON appointments;
+DROP POLICY IF EXISTS "Authenticated users can insert appointments" ON appointments;
+DROP POLICY IF EXISTS "Authenticated users can update appointments" ON appointments;
+DROP POLICY IF EXISTS "Authenticated users can read conversations" ON conversations;
+DROP POLICY IF EXISTS "Authenticated users can insert conversations" ON conversations;
+DROP POLICY IF EXISTS "Authenticated users can update conversations" ON conversations;
+DROP POLICY IF EXISTS "Authenticated users can read messages" ON messages;
+DROP POLICY IF EXISTS "Authenticated users can insert messages" ON messages;
+
+-- Crear políticas para patients
+CREATE POLICY "Authenticated users can read patients" ON patients FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can insert patients" ON patients FOR INSERT TO authenticated WITH CHECK (true);
+
+-- Crear políticas para appointments
+CREATE POLICY "Authenticated users can read appointments" ON appointments FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can insert appointments" ON appointments FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated users can update appointments" ON appointments FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+-- Crear políticas para conversations
+CREATE POLICY "Authenticated users can read conversations" ON conversations FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can insert conversations" ON conversations FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated users can update conversations" ON conversations FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+-- Crear políticas para messages
+CREATE POLICY "Authenticated users can read messages" ON messages FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can insert messages" ON messages FOR INSERT TO authenticated WITH CHECK (true);`}</pre>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    const sql = document.querySelector('pre')?.textContent;
+                    if (sql) navigator.clipboard.writeText(sql);
+                  }}
+                  className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
+                >
+                  📋 Copiar SQL
+                </button>
+                <a
+                  href="https://supabase.com/dashboard/project/zzaetaljaxxuvbgnfdvc/sql"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm"
+                >
+                  🚀 Abrir SQL Editor en Supabase
+                </a>
+              </div>
+
+              <ol className="text-gray-300 text-sm space-y-2 list-decimal list-inside bg-gray-700/50 p-4 rounded-lg">
+                <li>Haz clic en "Abrir SQL Editor en Supabase"</li>
+                <li>Copia el SQL de arriba y pégalo en el editor</li>
+                <li>Haz clic en "Run" para ejecutar</li>
+                <li>Vuelve a esta página y prueba "Verificar Autenticación (Servidor)"</li>
+              </ol>
+            </div>
           )}
         </div>
 
