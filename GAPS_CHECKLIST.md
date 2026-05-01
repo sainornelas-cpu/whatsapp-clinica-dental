@@ -251,21 +251,26 @@ curl -X GET "https://whatsapp-clinica-dental.vercel.app/api/cron/reminders" \
 - Archivo creado: `app/api/cron/reminders-1h/route.ts`
 - Busca citas 50-70 minutos en el futuro
 - Envía recordatorio por WhatsApp
-- Marca `reminder_1h_sent: true`
+- **CAMBIO:** Usa tabla `reminders_log` para rastrear envíos (no requiere modificar appointments)
 
-**Paso 2:** ✅ COMPLETADO - Agregar columna a base de datos
-- Script creado: `supabase/add-reminder-1h-column.sql`
-- Columna: `reminder_1h_sent` BOOLEAN DEFAULT FALSE
-- Índice creado para búsquedas rápidas
+**Paso 2:** ✅ COMPLETADO - Crear tabla separada para rastrear recordatorios
+- Script creado: `supabase/create-reminders-log-table.sql`
+- Tabla: `reminders_log` (appointment_id, reminder_type, sent_at)
+- **VENTAJA:** No requiere permisos de owner para crear tablas nuevas
+- **SOLUCIÓN AL PROBLEMA:** Evita el error "must be owner of table appointments"
 
-**Paso 3:** ⏳ PENDIENTE - Configurar cron-job.org (10 min)
+**Paso 3:** ⏳ PENDIENTE - Ejecutar SQL en Supabase (5 min)
+- Ir a: https://supabase.com/dashboard/project/zzaetaljaxxuvbgnfdvc/sql
+- Ejecutar: `supabase/create-reminders-log-table.sql`
+
+**Paso 4:** ⏳ PENDIENTE - Configurar cron-job.org (10 min)
 - Registrarse en https://cron-job.org
 - Crear job:
   - Schedule: `0 * * * *` (cada hora)
   - URL: `https://whatsapp-clinica-dental.vercel.app/api/cron/reminders-1h`
   - Header: `Authorization: Bearer tu_CRON_SECRET`
 
-**Paso 4:** ⏳ PENDIENTE - Desplegar y probar (15 min)
+**Paso 5:** ⏳ PENDIENTE - Desplegar y probar (15 min)
 
 **Costo:** $0
 **Tiempo Estimado:** 1-2 horas

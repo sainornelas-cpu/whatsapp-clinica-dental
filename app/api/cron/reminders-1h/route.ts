@@ -33,6 +33,37 @@ async function sendWhatsAppReminder(phoneNumber: string, patientName: string, ap
   return response.json();
 }
 
+// Verificar si ya se envió un recordatorio de un tipo específico para una cita
+async function wasReminderSent(appointmentId: string, reminderType: string): Promise<boolean> {
+  const { data, error } = await supabaseService
+    .from('reminders_log')
+    .select('id')
+    .eq('appointment_id', appointmentId)
+    .eq('reminder_type', reminderType)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking reminder log:', error);
+    return false;
+  }
+
+  return !!data;
+}
+
+// Registrar que se envió un recordatorio
+async function logReminderSent(appointmentId: string, reminderType: string) {
+  const { error } = await supabaseService
+    .from('reminders_log')
+    .insert({
+      appointment_id: appointmentId,
+      reminder_type: reminderType,
+    });
+
+  if (error) {
+    console.error('Error logging reminder:', error);
+  }
+}
+
 export async function GET(request: NextRequest) {
   console.log('Cron job: Sending 1-hour appointment reminders');
 
@@ -53,7 +84,6 @@ export async function GET(request: NextRequest) {
       .from('appointments')
       .select('*, patients!inner(*)')
       .eq('status', 'scheduled')
-      .eq('reminder_1h_sent', false)
       .gte('appointment_date', startWindow.toISOString())
       .lte('appointment_date', endWindow.toISOString());
 
@@ -62,17 +92,28 @@ export async function GET(request: NextRequest) {
       return new NextResponse('Error fetching appointments', { status: 500 });
     }
 
-    console.log(`Found ${appointments?.length || 0} appointments to remind (1h)`);
+    console.log(`Found ${appointments?.length || 0} appointments in the 1h window`);
 
     if (!appointments || appointments.length === 0) {
-      return new NextResponse('No 1h reminders to send', { status: 200 });
+      return NextResponse('No 1h reminders to send', { status: 200 });
     }
 
     let successCount = 0;
     let failureCount = 0;
+    let alreadySentCount = 0;
 
     for (const appointment of appointments) {
       try {
+        // Verificar si ya se envió el recordatorio de 1h
+        const wasSent = await wasReminderSent(appointment.id, '1h');
+
+        if (wasSent) {
+          alreadySentCount++;
+          console.log(`1h reminder already sent for appointment ${appointment.id}`);
+          continue;
+        }
+
+        // Enviar recordatorio
         await sendWhatsAppReminder(
           appointment.phone_number,
           appointment.patients.full_name || 'Paciente',
@@ -80,15 +121,8 @@ export async function GET(request: NextRequest) {
           appointment.service_type
         );
 
-        // Marcar recordatorio de 1h como enviado
-        const { error: updateError } = await supabaseService
-          .from('appointments')
-          .update({ reminder_1h_sent: true, updated_at: new Date().toISOString() })
-          .eq('id', appointment.id);
-
-        if (updateError) {
-          console.error('Error updating appointment reminder_1h status:', updateError);
-        }
+        // Registrar que se envió el recordatorio
+        await logReminderSent(appointment.id, '1h');
 
         successCount++;
         console.log(`1h reminder sent for appointment ${appointment.id}`);
@@ -98,11 +132,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`1h cron job completed: ${successCount} reminders sent, ${failureCount} failed`);
+    console.log(`1h cron job completed: ${successCount} sent, ${alreadySentCount} already sent, ${failureCount} failed`);
 
     return NextResponse.json({
       success: true,
-      message: `1h Reminders sent: ${successCount}, Failed: ${failureCount}`,
+      message: `1h Reminders: ${successCount} sent, ${alreadySentCount} already sent, ${failureCount} failed`,
     });
   } catch (error) {
     console.error('Error in 1h cron job:', error);
