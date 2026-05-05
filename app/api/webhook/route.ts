@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { supabaseService } from '@/lib/supabase';
 import { getCalBookingLink } from '@/lib/cal-links';
+import {
+  createGCEvent,
+  cancelGCEvent,
+  rescheduleGCEvent,
+  getGCAvailability,
+  formatGCDate,
+  getGCDuration,
+} from '@/lib/google-calendar';
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -193,7 +201,7 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'book_appointment',
-            description: 'Generate a booking link for the patient to complete their appointment reservation on Cal.com. Use this when the patient wants to schedule an appointment. Only requires service_type and phone_number - patient completes all other details on Cal.com.',
+            description: 'Create an appointment automatically via Google Calendar API. Use this when patient wants to schedule an appointment. Only requires service_type and phone_number - appointment is created immediately.',
             parameters: {
               type: 'object',
               properties: {
@@ -222,11 +230,12 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'cancel_appointment',
-            description: 'Provide Cal.com link for patient to manually cancel their appointment. SIMPLE METHOD: Show appointment options with Cal.com booking links - patient cancels directly from Cal.com.',
+            description: 'Cancel an appointment automatically via Google Calendar API. Patient just needs to confirm which appointment to cancel.',
             parameters: {
               type: 'object',
               properties: {
                 phone: { type: 'string', description: 'Patient phone number (from context)' },
+                appointment_id: { type: 'string', description: 'Optional: Specific appointment ID to cancel' },
               },
               required: ['phone'],
             },
@@ -236,11 +245,13 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'reschedule_appointment',
-            description: 'Provide Cal.com links for patient to manually reschedule their appointment. SIMPLE METHOD: Show appointment options with Cal.com booking links - patient reschedules directly from Cal.com.',
+            description: 'Reschedule an appointment automatically via Google Calendar API. Can show available time slots. Patient selects new date and time.',
             parameters: {
               type: 'object',
               properties: {
                 phone: { type: 'string', description: 'Patient phone number (from context)' },
+                appointment_id: { type: 'string', description: 'Optional: Specific appointment ID to reschedule' },
+                new_date: { type: 'string', description: 'Optional: New date and time for appointment (ISO format)' },
               },
               required: ['phone'],
             },
@@ -319,44 +330,45 @@ export async function POST(request: NextRequest) {
 async function bookAppointment(params: any) {
   try {
     const { service_type, phone } = params;
+    const duration = getGCDuration(service_type);
 
-    // Generate unique booking UID
-    const calBookingUid = `booking_${randomUUID()}`;
+    // Create appointment in Google Calendar
+    const gcEvent = await createGCEvent({
+      service: service_type,
+      phone,
+      datetime: new Date().toISOString(),
+      duration,
+    });
 
-    // Obtener el link de booking según el servicio
-    const bookingLink = getCalBookingLink(service_type);
-
-    if (!bookingLink) {
-      console.error('No booking link found for service:', service_type);
-      return { error: `No se encontró configuración para el servicio: ${service_type}` };
+    if (!gcEvent.id) {
+      console.error('No se pudo crear evento en Google Calendar');
+      return { error: 'No se pudo agendar la cita. Por favor intenta más tarde.' };
     }
 
-    // Insert appointment in Supabase como pendiente de confirmación
+    // Insert appointment in Supabase con referencia al evento de Google Calendar
     const { error: appointmentError } = await supabaseService
       .from('appointments')
       .insert({
         phone_number: phone,
-        cal_booking_uid: calBookingUid,
         service_type,
-        appointment_date: new Date().toISOString(), // Will be updated by Cal.com webhook
-        status: 'pending',
-        notes: `Link de booking: ${bookingLink}`,
+        appointment_date: gcEvent.start?.dateTime || new Date().toISOString(),
+        status: 'scheduled',
+        gc_event_id: gcEvent.id,
       });
 
     if (appointmentError) {
       console.error('Error inserting appointment:', appointmentError);
+      return { error: 'No se pudo agendar la cita. Por favor intenta más tarde.' };
     }
 
-    // Retornar el link de booking para que el usuario complete la reserva
     return {
       success: true,
-      bookingLink,
-      calBookingUid,
-      message: `Para completar tu reserva de ${service_type}, por favor usa el siguiente link: ${bookingLink}`,
+      appointment_id: gcEvent.id,
+      message: `✅ Cita agendada exitosamente!\n\n${service_type}\n${formatGCDate(gcEvent.start?.dateTime || '')}\n\nTe enviaré un recordatorio 1 día antes y 1 hora antes de tu cita.`,
     };
   } catch (error) {
     console.error('Error booking appointment:', error);
-    return { error: 'Error al generar link de reserva' };
+    return { error: 'Error al generar la cita' };
   }
 }
 
@@ -380,11 +392,9 @@ async function getMyAppointments(params: any) {
     return {
       appointments: appointments.map((apt: any) => ({
         id: apt.id,
-        cal_booking_uid: apt.cal_booking_uid,
         service_type: apt.service_type,
         appointment_date: apt.appointment_date,
-        status: apt.status === 'pending' ? 'pendiente de confirmación' : 'confirmada',
-        booking_link: apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null,
+        status: apt.status,
       })),
     };
   } catch (error) {
@@ -395,11 +405,11 @@ async function getMyAppointments(params: any) {
 
 async function cancelAppointment(params: any) {
   try {
-    const { phone } = params;
+    const { phone, appointment_id } = params;
 
-    console.log(`Getting appointments for cancellation, phone: ${phone}`);
+    console.log(`Getting appointments for cancellation, phone: ${phone}, appointment_id: ${appointment_id}`);
 
-    // Get all appointments for this patient
+    // Get appointments for this patient
     const { data: appointments, error: findError } = await supabaseService
       .from('appointments')
       .select('*')
@@ -413,30 +423,50 @@ async function cancelAppointment(params: any) {
       return { error: 'No tienes citas programadas.' };
     }
 
-    // Return appointments with their Cal.com links for manual cancellation
+    // Seleccionar la próxima (o la especificada)
+    const aptToCancel = appointment_id
+      ? appointments.find((a: any) => a.id === appointment_id)
+      : appointments[0];
+
+    if (!aptToCancel) {
+      return { error: appointment_id ? 'Cita no encontrada' : 'No tienes citas programadas' };
+    }
+
+    if (!aptToCancel.gc_event_id) {
+      return { error: 'Esta cita no se puede cancelar desde el bot (no tiene evento de Google Calendar).' };
+    }
+
+    // Cancelar en Google Calendar
+    const success = await cancelGCEvent(aptToCancel.gc_event_id);
+    if (!success) {
+      return { error: 'Error al cancelar en Google Calendar' };
+    }
+
+    // Actualizar en Supabase
+    const { error: updateError } = await supabaseService
+      .from('appointments')
+      .update({ status: 'cancelled' })
+      .eq('id', aptToCancel.id);
+
+    if (updateError) throw updateError;
+
     return {
       success: true,
-      appointments: appointments.map((apt: any) => ({
-        id: apt.id,
-        service_type: apt.service_type,
-        appointment_date: apt.appointment_date,
-        status: apt.status === 'pending' ? 'pendiente de confirmación' : 'confirmada',
-        booking_link: apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null,
-      })),
+      message: `✅ Cita ${aptToCancel.service_type} cancelada exitosamente.`,
     };
   } catch (error) {
-    console.error('Error getting appointments for cancellation:', error);
-    return { error: 'Error al obtener tus citas.' };
+    console.error('Error cancelling appointment:', error);
+    return { error: 'Error al cancelar la cita' };
   }
 }
 
 async function rescheduleAppointment(params: any) {
   try {
-    const { phone } = params;
+    const { phone, appointment_id, new_date } = params;
 
-    console.log(`Getting appointments for rescheduling, phone: ${phone}`);
+    console.log(`Getting appointments for rescheduling, phone: ${phone}, appointment_id: ${appointment_id}, new_date: ${new_date}`);
 
-    // Get all appointments for this patient
+    // Get appointments for this patient
     const { data: appointments, error: findError } = await supabaseService
       .from('appointments')
       .select('*')
@@ -450,19 +480,70 @@ async function rescheduleAppointment(params: any) {
       return { error: 'No tienes citas programadas.' };
     }
 
-    // Return appointments with their Cal.com links for manual rescheduling
+    const aptToReschedule = appointment_id
+      ? appointments.find((a: any) => a.id === appointment_id)
+      : appointments[0];
+
+    if (!aptToReschedule) {
+      return { error: appointment_id ? 'Cita no encontrada' : 'No tienes citas programadas' };
+    }
+
+    // Si no hay nueva fecha, mostrar disponibilidad
+    if (!new_date) {
+      if (!aptToReschedule.gc_event_id) {
+        return { error: 'Esta cita no se puede reagendar desde el bot.' };
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const duration = getGCDuration(aptToReschedule.service_type);
+      const availability = await getGCAvailability(today, duration);
+
+      if (availability.length === 0) {
+        return { error: 'No hay horarios disponibles para hoy.' };
+      }
+
+      const slots = availability.slice(0, 5).map((slot, i) => ({
+        number: i + 1,
+        time: formatGCDate(slot.start),
+        datetime: slot.start,
+      }));
+
+      return {
+        needs_date_selection: true,
+        appointment_id: aptToReschedule.id,
+        message: `Selecciona nuevo horario para ${aptToReschedule.service_type}:`,
+        available_slots: slots,
+      };
+    }
+
+    // Reagendar en Google Calendar
+    const duration = getGCDuration(aptToReschedule.service_type);
+    const updatedEvent = await rescheduleGCEvent(
+      aptToReschedule.gc_event_id,
+      new_date,
+      duration
+    );
+
+    if (!updatedEvent.id) {
+      return { error: 'Error al reagendar en Google Calendar' };
+    }
+
+    // Actualizar en Supabase
+    const { error: updateError } = await supabaseService
+      .from('appointments')
+      .update({
+        appointment_date: updatedEvent.start?.dateTime || new_date,
+      })
+      .eq('id', aptToReschedule.id);
+
+    if (updateError) throw updateError;
+
     return {
       success: true,
-      appointments: appointments.map((apt: any) => ({
-        id: apt.id,
-        service_type: apt.service_type,
-        appointment_date: apt.appointment_date,
-        status: apt.status === 'pending' ? 'pendiente de confirmación' : 'confirmada',
-        booking_link: apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null,
-      })),
+      message: `✅ Cita reagendada exitosamente para ${formatGCDate(updatedEvent.start?.dateTime || '')}.`,
     };
   } catch (error) {
-    console.error('Error getting appointments for rescheduling:', error);
-    return { error: 'Error al obtener tus citas.' };
+    console.error('Error rescheduling appointment:', error);
+    return { error: 'Error al reagendar la cita' };
   }
 }
