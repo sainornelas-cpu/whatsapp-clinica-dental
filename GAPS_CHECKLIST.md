@@ -13,8 +13,8 @@
 | 2. Reagendamiento automático | ❌ Manual | Easy!Appointments | $0 | 2-3h | ALTA |
 | 3. Memoria del bot | ✅ Implementado | Verificar | $0 | 1-2h | MEDIA |
 | 4. Recordatorio 24h antes | ✅ Implementado | Verificar | $0 | 30min | BAJA |
-| 5. Recordatorio 1h antes | ✅ Listo (configurar cron) | cron-job.org | $0 | 10min | MEDIA |
-| 6. Calendario para dentista | ❌ NO | React Big Calendar | $0 | 4-6h | MEDIA |
+| 5. Recordatorio 1h antes | ⏳ Pendiente verificar | cron-job.org | $0 | 10min | MEDIA |
+| 6. Calendario para dentista | ✅ COMPLETADO | React Big Calendar | $0 | 3h | MEDIA |
 | 7. Analytics con data real | ⚠️ Verificar | Verificar conexión | $0 | 1h | BAJA |
 
 ---

@@ -19,6 +19,7 @@ export default function DashboardSidebar() {
 
   const navItems = [
     { path: '/dashboard/conversations', label: 'Conversaciones', icon: '💬' },
+    { path: '/dashboard/calendar', label: 'Calendario', icon: '📆' },
     { path: '/dashboard/appointments', label: 'Citas', icon: '📅' },
     { path: '/dashboard/patients', label: 'Pacientes', icon: '👥' },
     { path: '/dashboard/analytics', label: 'Analítica', icon: '📊' },
