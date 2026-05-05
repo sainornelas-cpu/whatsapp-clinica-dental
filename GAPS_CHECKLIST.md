@@ -9,8 +9,8 @@
 
 | Gap | Estado | Solución Recomendada | Costo | Tiempo | Prioridad |
 |-----|--------|---------------------|-------|--------|-----------|
-| 1. Cancelación automática | ❌ Manual | Easy!Appointments | $0 | 4-6h | ALTA |
-| 2. Reagendamiento automático | ❌ Manual | Easy!Appointments | $0 | 2-3h | ALTA |
+| 1. Cancelación automática | ✅ COMPLETADO | Google Calendar API | $0 | 3h | ALTA |
+| 2. Reagendamiento automático | ✅ COMPLETADO | Google Calendar API | $0 | 3h | ALTA |
 | 3. Memoria del bot | ✅ Implementado | Verificar | $0 | 1-2h | MEDIA |
 | 4. Recordatorio 24h antes | ✅ Implementado | Verificar | $0 | 30min | BAJA |
 | 5. Recordatorio 1h antes | ⏳ Pendiente verificar | cron-job.org | $0 | 10min | MEDIA |
