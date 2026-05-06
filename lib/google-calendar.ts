@@ -2,7 +2,9 @@ import { calendar_v3, google } from 'googleapis';
 
 /**
  * Integración con Google Calendar API
- * Permite crear, cancelar, reagendar y consultar eventos de calendario
+ * ENFOQUE SIMPLIFICADO: Solo autenticación con API Key, sin OAuth
+ * El calendario del bot es donde se crean las citas (primary)
+ * El dentista puede ver/editar las citas en su propio calendario
  */
 
 // Mapeo de duraciones por servicio (en minutos)
@@ -56,29 +58,32 @@ export interface GCAppointment {
 }
 
 // Configuración
+// Usamos 'primary' - el calendario del bot donde se crean las citas
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
 
-// Crear cliente autenticado con JWT
-let calendar: calendar_v3.Calendar | null = null;
+// Autenticación con API Key (más simple que OAuth)
+const GOOGLE_CALENDAR_API_KEY = process.env.GOOGLE_CALENDAR_API_KEY || '';
 
+/**
+ * Crear cliente autenticado con API Key
+ */
 export function getCalendarClient(): calendar_v3.Calendar {
-  if (calendar) return calendar;
+  if (CALENDAR_ID === 'primary') {
+    // Si se usa 'primary', usamos el endpoint con API Key (más simple)
+    if (!GOOGLE_CALENDAR_API_KEY) {
+      throw new Error('Google Calendar API Key not configured. Please set GOOGLE_CALENDAR_API_KEY environment variable.');
+    }
 
-  const authClientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const authPrivateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-  if (!authClientEmail || !authPrivateKey) {
-    throw new Error('Google Calendar credentials not configured. Please set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY environment variables.');
+    return calendar_v3.Calendar({
+      auth: GOOGLE_CALENDAR_API_KEY,
+    version: 'v3',
+    calendarId: 'primary',
+    });
   }
 
-  const auth = new google.auth.JWT({
-    email: authClientEmail,
-    key: authPrivateKey.replace(/\\n/g, '\n'),
-    scopes: ['https://www.googleapis.com/auth/calendar'],
-  });
-
-  calendar = calendar_v3.Calendar({ auth });
-  return calendar;
+  // Si se requiere un calendario específico, se necesita OAuth
+  // Por ahora, solo soportamos el enfoque simplificado
+  throw new Error('Para configurar un calendario específico, consulta las instrucciones de OAuth. Actualmente solo soportamos el calendario principal (primary) con autenticación de API Key.');
 }
 
 /**
@@ -116,7 +121,7 @@ export async function createGCEvent(data: {
   };
 
   const response = await client.events.insert({
-    calendarId: CALENDAR_ID,
+    calendarId: 'primary',
     requestBody: event,
   });
 
@@ -130,7 +135,7 @@ export async function cancelGCEvent(eventId: string): Promise<boolean> {
   try {
     const client = getCalendarClient();
     await client.events.delete({
-      calendarId: CALENDAR_ID,
+      calendarId: 'primary',
       eventId: eventId,
     });
     return true;
@@ -164,7 +169,7 @@ export async function rescheduleGCEvent(
   };
 
   const response = await client.events.patch({
-    calendarId: CALENDAR_ID,
+    calendarId: 'primary',
     eventId: eventId,
     requestBody: event,
   });
@@ -189,7 +194,7 @@ export async function getGCAvailability(
   endOfDay.setHours(20, 0, 0, 0); // 8 PM
 
   const response = await client.events.list({
-    calendarId: CALENDAR_ID,
+    calendarId: 'primary',
     timeMin: startOfDay.toISOString(),
     timeMax: endOfDay.toISOString(),
     singleEvents: true,
@@ -239,7 +244,7 @@ export async function getGCEventsByPhone(phone: string): Promise<GCEvent[]> {
   const client = getCalendarClient();
 
   const response = await client.events.list({
-    calendarId: CALENDAR_ID,
+    calendarId: 'primary',
     singleEvents: true,
     orderBy: 'startTime',
     timeMin: new Date().toISOString(),
