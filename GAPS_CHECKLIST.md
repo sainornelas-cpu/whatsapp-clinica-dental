@@ -1,7 +1,7 @@
 # CHECKLIST DE GAPS DEL SISTEMA - SOLUCIONES
 
-**Fecha:** 1 de mayo de 2026
-**Estado actual:** 6 gaps identificados, 2 ya implementados
+**Fecha:** 6 de mayo de 2026
+**Estado actual:** 7 gaps identificados, 5 implementados, 2 pendientes
 
 ---
 
@@ -9,11 +9,11 @@
 
 | Gap | Estado | Solución Recomendada | Costo | Tiempo | Prioridad |
 |-----|--------|---------------------|-------|--------|-----------|
-| 1. Cancelación automática | ✅ COMPLETADO | Google Calendar API | $0 | 3h | ALTA |
-| 2. Reagendamiento automático | ✅ COMPLETADO | Google Calendar API | $0 | 3h | ALTA |
+| 1. Cancelación automática | ⚠️ Cal.com (manual) | Easy!Appointments (GRATIS) | $0 | 3h | ALTA |
+| 2. Reagendamiento automático | ⚠️ Cal.com (manual) | Easy!Appointments (GRATIS) | $0 | 3h | ALTA |
 | 3. Memoria del bot | ✅ Implementado | Verificar | $0 | 1-2h | MEDIA |
 | 4. Recordatorio 24h antes | ✅ Implementado | Verificar | $0 | 30min | BAJA |
-| 5. Recordatorio 1h antes | ⏳ Pendiente verificar | cron-job.org | $0 | 10min | MEDIA |
+| 5. Recordatorio 1h antes | ✅ COMPLETADO | cron-job.org | $0 | 10min | MEDIA |
 | 6. Calendario para dentista | ✅ COMPLETADO | React Big Calendar | $0 | 3h | MEDIA |
 | 7. Analytics con data real | ⚠️ Verificar | Verificar conexión | $0 | 1h | BAJA |
 
@@ -218,8 +218,7 @@ curl -X GET "https://whatsapp-clinica-dental.vercel.app/api/cron/reminders" \
 - **Implementación:** ✅ COMPLETADO (sin migración de BD)
 - **Endpoint creado:** `app/api/cron/reminders-1h/route.ts`
 - **Solución:** Usa ventana de tiempo estrecha (58-62 min) - NO requiere modificar BD
-- **Pendiente:** Configurar cron-job.org
-- **Limitación:** Vercel solo permite 1 cron job por proyecto (por eso usamos cron-job.org)
+- **Configurado:** cron-job.org
 
 ### Solución Final: Sin Migración de Base de Datos
 
@@ -242,101 +241,14 @@ Debido a problemas de permisos en Supabase ("must be owner", "permission denied"
 - ⚠️ Si el cron job falla en una hora, esa ventana de citas no recibirán recordatorio
 - ⚠️ Menos preciso que marcar en BD (pero funcional)
 
-### Plan de Implementación (cron-job.org) - ACTUALIZADO
-
-**Paso 1:** ✅ COMPLETADO - Crear endpoint de recordatorio 1h
-- Archivo: `app/api/cron/reminders-1h/route.ts`
-- Busca citas 58-62 minutos en el futuro
-- Envía recordatorio por WhatsApp
-- **NO modifica la base de datos**
-
-**Paso 2:** ⏳ PENDIENTE - Configurar cron-job.org (10 min)
-- Registrarse en https://cron-job.org
-- Crear job:
-  - **Title:** WhatsApp Dental - Recordatorio 1h
-  - **Schedule:** `0 * * * *` (cada hora)
-  - **URL:** `https://whatsapp-clinica-dental.vercel.app/api/cron/reminders-1h`
-  - **Method:** GET
-  - **Headers:** Agregar `Authorization: Bearer tu_CRON_SECRET`
-
-**Paso 3:** ⏳ PENDIENTE - Probar (5 min)
-- Crear una cita de prueba
-- Verificar que llegue el recordatorio 1h antes
-
-**Costo:** $0
-**Tiempo Estimado:** 1-2 horas
-**Prioridad:** MEDIA
-
 ---
 
 ## GAP 6: EL SISTEMA NO TIENE CALENDARIO PARA EL DENTISTA
 
 ### Estado Actual
-- **Implementación:** ❌ NO IMPLEMENTADO
-- **Dashboard actual:** Muestra listas de citas pero NO calendario visual
-
-### Soluciones Investigadas
-
-#### Opción A: React Big Calendar (RECOMENDADA - GRATIS)
-- **URL:** https://github.com/jquense/react-big-calendar
-- **Costo:** 100% GRATIS (MIT License)
-- **Ventajas:**
-  - Comunidad grande (175K+ descargas semanales)
-  - Vistas: día, semana, mes, agenda
-  - Drag & drop
-  - Fácil integración con Supabase
-- **Desventajas:**
-  - Interfaz básica
-  - Requiere más personalización
-
-#### Opción B: FullCalendar ($79/año)
-- **URL:** https://fullcalendar.io/
-- **Costo:** $79/año (Standard) o $149/año (Premium)
-- **Ventajas:**
-  - Profesional, muy usado
-  - Excelente documentación
-  - Resource scheduling
-- **Desventajas:**
-  - Costo anual
-
-#### Opción C: DHTMLX Scheduler ($299+)
-- **URL:** https://dhtmlx.com/docs/products/dhtmlxScheduler-for-React/
-- **Costo:** Desde $299 (one-time)
-- **Ventajas:** Template médico dedicado
-- **Desventajas:** Costo alto
-
-### Plan de Implementación (React Big Calendar)
-
-**Paso 1:** Instalar dependencias (5 min)
-```bash
-npm install react-big-calendar moment
-```
-
-**Paso 2:** Crear página de calendario (2 horas)
-```typescript
-// Crear: app/dashboard/calendar/page.tsx
-// Ver código completo en investigación de calendarios
-```
-
-**Paso 3:** Agregar navegación en sidebar (10 min)
-```typescript
-// components/DashboardSidebar.tsx
-const navItems = [
-  { path: '/dashboard/calendar', label: 'Calendario', icon: '📅' },
-  // ...
-];
-```
-
-**Paso 4:** Agregar creación/edición de citas (1-2 horas)
-- Modal para crear cita
-- Modal para ver/editar cita
-- Integración con Supabase
-
-**Paso 5:** Pruebas y ajustes (30 min)
-
-**Costo:** $0
-**Tiempo Estimado:** 4-6 horas
-**Prioridad:** MEDIA
+- **Implementación:** ✅ COMPLETADO
+- **Código:** `app/dashboard/calendar/page.tsx`
+- **Librería:** React Big Calendar
 
 ---
 
@@ -386,8 +298,8 @@ SELECT COUNT(*) FROM messages;
 | 2. Reagendamiento automático | ✅ SÍ | Mismo que GAP 1 |
 | 3. Memoria del bot | ✅ SÍ | Ya implementado, solo verificar |
 | 4. Recordatorio 24h | ✅ SÍ | Ya implementado, solo verificar |
-| 5. Recordatorio 1h | ✅ SÍ | cron-job.org es gratis |
-| 6. Calendario dentista | ✅ SÍ | React Big Calendar es gratis |
+| 5. Recordatorio 1h | ✅ SÍ | Ya implementado (cron-job.org) |
+| 6. Calendario dentista | ✅ SÍ | Ya completado (React Big Calendar) |
 | 7. Analytics real | ✅ SÍ | Solo verificar conexión |
 
 **CONCLUSIÓN:** TODOS LOS GAPS SON ALCANZABLES CON LAS HERRAMIENTAS ACTUALES.
@@ -402,23 +314,17 @@ SELECT COUNT(*) FROM messages;
 - [ ] Verificar analytics real (GAP 7)
 
 ### FASE 2: SOLUCIONES RÁPIDAS (2 horas)
-- [ ] Implementar recordatorio 1h (GAP 5)
+- [ ] Verificar recordatorio 1h (GAP 5)
 - [ ] Verificar/Configurar RLS en Supabase
 
-### FASE 3: CALENDARIO PARA DENTISTA (4-6 horas)
-- [ ] Instalar React Big Calendar
-- [ ] Crear página de calendario
-- [ ] Agregar navegación
-- [ ] Implementar creación/edición de citas
-
-### FASE 4: MIGRAR SISTEMA DE RESERVAS (6-9 horas)
+### FASE 3: MIGRAR SISTEMA DE RESERVAS (6-9 horas)
 - [ ] Desplegar Easy!Appointments
 - [ ] Crear integración
 - [ ] Modificar webhook del bot
 - [ ] Migrar datos
 - [ ] Pruebas
 
-**TIEMPO TOTAL:** 14-19 horas de desarrollo
+**TIEMPO TOTAL:** 10-13 horas de desarrollo
 **COSTO TOTAL:** $0 (solo tiempo)
 
 ---
