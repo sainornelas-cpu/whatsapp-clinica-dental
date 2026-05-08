@@ -12,7 +12,7 @@ async function testCalAPI() {
     start: new Date(Date.UTC(2026, 5, 10, 10, 0)).toISOString(), // 10 de JUNIO 2026, 10:00 AM UTC
     attendee: {
       name: 'Test Patient',
-      email: 'test@whatsapp-temp.com',
+      email: 'test@wa-temp.com',
       timeZone: 'America/Mexico_City',
       phoneNumber: '5216651108583',
     },

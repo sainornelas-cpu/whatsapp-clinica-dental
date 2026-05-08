@@ -431,7 +431,7 @@ async function bookAppointment(params: any) {
         eventTypeId,
         attendee: {
           name: patient.full_name || 'Paciente',
-          email: `${phone}@whatsapp-temp.com`, // Email temporal
+          email: `wa.${phone}@gmail.com`, // Email temporal con formato Gmail (dominios custom son bloqueados)
           timeZone: 'America/Mexico_City',
           phoneNumber: phone,
         },
