@@ -488,23 +488,24 @@ async function cancelAppointment(params: any) {
 
     console.log(`Getting appointments for cancellation, phone: ${phone}`);
 
-    // OPCIÓN B: Usar el mismo link original de booking
-    // Buscamos todas las citas (pendientes o confirmadas)
+    // Buscar citas confirmadas (scheduled) con UID real de Cal.com
     const { data: appointments, error: findError } = await supabaseService
       .from('appointments')
       .select('*')
       .eq('phone_number', phone)
+      .eq('status', 'scheduled')
       .order('appointment_date', { ascending: true });
 
     if (findError) throw findError;
 
     if (!appointments || appointments.length === 0) {
-      return { error: 'No tienes citas registradas. ¿Quieres agendar una?' };
+      return { error: 'No tienes citas confirmadas. Si acabas de agendar, espera unos minutos o revisa tu email para el link de gestión.' };
     }
 
-    // Extract booking link from notes
+    // Usar el link de gestión: https://app.cal.com/booking/{uid}
     const appointmentOptions = appointments.map((apt: any, index: number) => {
-      const bookingLink = apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null;
+      // Si el UID es real de Cal.com (no empieza con "booking_"), usar link de gestión
+      const hasRealUid = apt.cal_booking_uid && !apt.cal_booking_uid.startsWith('booking_');
       const dateStr = new Date(apt.appointment_date).toLocaleDateString('es-MX', {
         weekday: 'long',
         day: 'numeric',
@@ -513,20 +514,29 @@ async function cancelAppointment(params: any) {
         minute: '2-digit'
       });
 
-      if (bookingLink) {
+      if (hasRealUid) {
+        const managementLink = `https://app.cal.com/booking/${apt.cal_booking_uid}`;
         return `${index + 1}. ${apt.service_type} - ${dateStr}
+
+Para reagendar o cancelar: ${managementLink}`;
+      } else {
+        // Fallback: usar link de booking original
+        const bookingLink = apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null;
+        if (bookingLink) {
+          return `${index + 1}. ${apt.service_type} - ${dateStr}
 
 Usa este link: ${bookingLink}`;
-      } else {
-        return `${index + 1}. ${apt.service_type} - ${dateStr}
+        } else {
+          return `${index + 1}. ${apt.service_type} - ${dateStr}
 
 ⚠️ Link no disponible. Contáctanos directamente.`;
+        }
       }
     }).join('\n\n');
 
     return {
       success: true,
-      message: `Para reagendar o cancelar, usa el MISMO link que te envié al agendar:\n\n${appointmentOptions}\n\nCuando entres al link, Cal.com te mostrará tu cita y podrás reagendarla o cancelarla.`,
+      message: `Para reagendar o cancelar tu cita, usa el link correspondiente:\n\n${appointmentOptions}`,
     };
   } catch (error) {
     console.error('Error cancelling appointment:', error);
@@ -540,23 +550,24 @@ async function rescheduleAppointment(params: any) {
 
     console.log(`Getting appointments for rescheduling, phone: ${phone}`);
 
-    // OPCIÓN B: Usar el mismo link original de booking
-    // Buscamos todas las citas (pendientes o confirmadas)
+    // Buscar citas confirmadas (scheduled) con UID real de Cal.com
     const { data: appointments, error: findError } = await supabaseService
       .from('appointments')
       .select('*')
       .eq('phone_number', phone)
+      .eq('status', 'scheduled')
       .order('appointment_date', { ascending: true });
 
     if (findError) throw findError;
 
     if (!appointments || appointments.length === 0) {
-      return { error: 'No tienes citas registradas. ¿Quieres agendar una?' };
+      return { error: 'No tienes citas confirmadas. Si acabas de agendar, espera unos minutos o revisa tu email para el link de gestión.' };
     }
 
-    // Extract booking link from notes
+    // Usar el link de gestión: https://app.cal.com/booking/{uid}
     const appointmentOptions = appointments.map((apt: any, index: number) => {
-      const bookingLink = apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null;
+      // Si el UID es real de Cal.com (no empieza con "booking_"), usar link de gestión
+      const hasRealUid = apt.cal_booking_uid && !apt.cal_booking_uid.startsWith('booking_');
       const dateStr = new Date(apt.appointment_date).toLocaleDateString('es-MX', {
         weekday: 'long',
         day: 'numeric',
@@ -565,20 +576,29 @@ async function rescheduleAppointment(params: any) {
         minute: '2-digit'
       });
 
-      if (bookingLink) {
+      if (hasRealUid) {
+        const managementLink = `https://app.cal.com/booking/${apt.cal_booking_uid}`;
         return `${index + 1}. ${apt.service_type} - ${dateStr}
+
+Para reagendar o cancelar: ${managementLink}`;
+      } else {
+        // Fallback: usar link de booking original
+        const bookingLink = apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null;
+        if (bookingLink) {
+          return `${index + 1}. ${apt.service_type} - ${dateStr}
 
 Usa este link: ${bookingLink}`;
-      } else {
-        return `${index + 1}. ${apt.service_type} - ${dateStr}
+        } else {
+          return `${index + 1}. ${apt.service_type} - ${dateStr}
 
 ⚠️ Link no disponible. Contáctanos directamente.`;
+        }
       }
     }).join('\n\n');
 
     return {
       success: true,
-      message: `Para reagendar o cancelar, usa el MISMO link que te envié al agendar:\n\n${appointmentOptions}\n\nCuando entres al link, Cal.com te mostrará tu cita y podrás reagendarla o cancelarla.`,
+      message: `Para reagendar o cancelar tu cita, usa el link correspondiente:\n\n${appointmentOptions}`,
     };
   } catch (error) {
     console.error('Error rescheduling appointment:', error);
