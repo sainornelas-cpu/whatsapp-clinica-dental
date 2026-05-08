@@ -471,7 +471,7 @@ async function getMyAppointments(params: any) {
 
     return {
       appointments: appointments.map((apt: any) => {
-        const managementLink = getCalManagementLink(apt.cal_booking_uid);
+        const managementLink = getCalManagementLink(apt.cal_booking_uid, apt.service_type);
         return {
           id: apt.id,
           cal_booking_uid: apt.cal_booking_uid,
@@ -512,7 +512,7 @@ async function cancelAppointment(params: any) {
     // Return appointments with their Cal.com management links
     // The patient will cancel directly from Cal.com
     const appointmentOptions = appointments.map((apt: any, index: number) => {
-      const managementLink = getCalManagementLink(apt.cal_booking_uid);
+      const managementLink = getCalManagementLink(apt.cal_booking_uid, apt.service_type);
       const dateStr = new Date(apt.appointment_date).toLocaleDateString('es-MX', {
         weekday: 'long',
         day: 'numeric',
@@ -565,7 +565,7 @@ async function rescheduleAppointment(params: any) {
     // Return appointments with their Cal.com management links
     // The patient will reschedule directly from Cal.com
     const appointmentOptions = appointments.map((apt: any, index: number) => {
-      const managementLink = getCalManagementLink(apt.cal_booking_uid);
+      const managementLink = getCalManagementLink(apt.cal_booking_uid, apt.service_type);
       const dateStr = new Date(apt.appointment_date).toLocaleDateString('es-MX', {
         weekday: 'long',
         day: 'numeric',
