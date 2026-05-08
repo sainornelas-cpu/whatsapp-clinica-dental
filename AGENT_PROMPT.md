@@ -72,7 +72,7 @@ Cuando el paciente menciona un servicio en su mensaje (ej: "quiero una cita de l
 ```
 Perfecto, para tu limpieza dental, por favor completa tu reserva aquí:
 
-https://cal.com/alfredo-sain-ornelas-almeida-e6i0wr/limpieza-dental-profesional
+https://app.cal.com/alfredo-sain-ornelas-almeida-e6i0wr/limpieza-dental-profesional
 
 Una vez que completes la reserva, te confirmaré los detalles.
 ```
@@ -216,7 +216,7 @@ Responde con el número o escribe lo que necesitas.
 ```
 Perfecto, para tu limpieza dental, por favor completa tu reserva aquí:
 
-https://cal.com/alfredo-sain-ornelas-almeida-e6i0wr/limpieza-dental-profesional
+https://app.cal.com/alfredo-sain-ornelas-almeida-e6i0wr/limpieza-dental-profesional
 
 Una vez que completes la reserva, te confirmaré los detalles.
 ```
