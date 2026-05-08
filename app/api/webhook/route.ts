@@ -379,12 +379,28 @@ export async function POST(request: NextRequest) {
 // Tool functions
 
 // Generate Cal.com management link for an existing booking
-function getCalManagementLink(bookingUid: string): string | null {
+function getCalManagementLink(bookingUid: string, serviceType: string): string | null {
   if (!bookingUid) return null;
+
   // Remove the "booking_" prefix if it exists (we added it, but Cal.com might not include it)
   const uid = bookingUid.replace('booking_', '');
-  // Cal.com reschedule link format
-  return `https://cal.com/reschedule/${uid}`;
+
+  // Get the event slug from the service type
+  const eventSlugMap: { [key: string]: string } = {
+    'limpieza': 'limpieza-dental-profesional',
+    'consulta': 'consulta-general',
+    'blanqueamiento': 'blanqueamiento-dental',
+    'ortodoncia': 'ortodoncia',
+    'extracción': 'extraccion-dental',
+    'urgencia': 'atencion-de-urgencia',
+  };
+
+  const eventSlug = eventSlugMap[serviceType.toLowerCase()] || 'consulta-general';
+  const username = 'alfredo-sain-ornelas-almeida-e6i0wr';
+
+  // Cal.com reschedule link format: /[username]/[event-slug]?rescheduleUid=[uid]
+  // IMPORTANT: Must use app.cal.com domain, not cal.com
+  return `https://app.cal.com/${username}/${eventSlug}?rescheduleUid=${uid}`;
 }
 
 async function bookAppointment(params: any) {

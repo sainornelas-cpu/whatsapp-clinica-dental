@@ -1,22 +1,24 @@
 // Generación de links de booking de Cal.com
 // En lugar de usar la API problemática de bookings, generamos links para que el usuario complete la reserva
+// IMPORTANT: Must use app.cal.com domain, not cal.com
 
 const CAL_USER = 'alfredo-sain-ornelas-almeida-e6i0wr';
+const CAL_DOMAIN = 'https://app.cal.com';
 
 export const CAL_BOOKING_LINKS: Record<string, string> = {
-  'limpieza dental': `https://cal.com/${CAL_USER}/limpieza-dental-profesional`,
-  'limpieza': `https://cal.com/${CAL_USER}/limpieza-dental-profesional`,
-  'consulta general': `https://cal.com/${CAL_USER}/consulta-general`,
-  'consulta': `https://cal.com/${CAL_USER}/consulta-general`,
-  'revisión': `https://cal.com/${CAL_USER}/consulta-general`,
-  'blanqueamiento dental': `https://cal.com/${CAL_USER}/blanqueamiento-dental`,
-  'blanqueamiento': `https://cal.com/${CAL_USER}/blanqueamiento-dental`,
-  'ortodoncia': `https://cal.com/${CAL_USER}/ortodoncia`,
-  'extracción dental': `https://cal.com/${CAL_USER}/extraccion-dental`,
-  'extracción': `https://cal.com/${CAL_USER}/extraccion-dental`,
-  'atención de urgencia': `https://cal.com/${CAL_USER}/atencion-de-urgencia`,
-  'urgencia': `https://cal.com/${CAL_USER}/atencion-de-urgencia`,
-  'urgencia dental': `https://cal.com/${CAL_USER}/atencion-de-urgencia`,
+  'limpieza dental': `${CAL_DOMAIN}/${CAL_USER}/limpieza-dental-profesional`,
+  'limpieza': `${CAL_DOMAIN}/${CAL_USER}/limpieza-dental-profesional`,
+  'consulta general': `${CAL_DOMAIN}/${CAL_USER}/consulta-general`,
+  'consulta': `${CAL_DOMAIN}/${CAL_USER}/consulta-general`,
+  'revisión': `${CAL_DOMAIN}/${CAL_USER}/consulta-general`,
+  'blanqueamiento dental': `${CAL_DOMAIN}/${CAL_USER}/blanqueamiento-dental`,
+  'blanqueamiento': `${CAL_DOMAIN}/${CAL_USER}/blanqueamiento-dental`,
+  'ortodoncia': `${CAL_DOMAIN}/${CAL_USER}/ortodoncia`,
+  'extracción dental': `${CAL_DOMAIN}/${CAL_USER}/extraccion-dental`,
+  'extracción': `${CAL_DOMAIN}/${CAL_USER}/extraccion-dental`,
+  'atención de urgencia': `${CAL_DOMAIN}/${CAL_USER}/atencion-de-urgencia`,
+  'urgencia': `${CAL_DOMAIN}/${CAL_USER}/atencion-de-urgencia`,
+  'urgencia dental': `${CAL_DOMAIN}/${CAL_USER}/atencion-de-urgencia`,
 };
 
 export function getCalBookingLink(serviceType: string): string | null {
