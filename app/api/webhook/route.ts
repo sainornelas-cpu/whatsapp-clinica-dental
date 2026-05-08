@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { supabaseService } from '@/lib/supabase';
 import { getCalBookingLink } from '@/lib/cal-links';
-import { getEventTypeId, createCalBooking } from '@/lib/cal-api';
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -256,14 +255,12 @@ export async function POST(request: NextRequest) {
           type: 'function',
           function: {
             name: 'book_appointment',
-            description: 'Create an appointment. If patient provides date and time, creates confirmed booking directly. Otherwise, generates booking link for patient to complete on Cal.com. Ask for date (YYYY-MM-DD format) and time (HH:MM format) to create confirmed booking.',
+            description: 'Generate a Cal.com booking link for the patient to complete their reservation. The patient will see all available time slots on the link.',
             parameters: {
               type: 'object',
               properties: {
                 service_type: { type: 'string', description: 'Type of dental service (limpieza, consulta, blanqueamiento, ortodoncia, extracción, urgencia)' },
                 phone: { type: 'string', description: 'Patient phone number' },
-                date: { type: 'string', description: 'Date for the appointment in YYYY-MM-DD format (optional, but if provided, must include time)' },
-                time: { type: 'string', description: 'Time for the appointment in HH:MM format (24-hour, optional, but if provided, must include date)' },
               },
               required: ['service_type', 'phone'],
             },
@@ -402,101 +399,12 @@ function getCalManagementLink(bookingUid: string, serviceType?: string): string 
 
 async function bookAppointment(params: any) {
   try {
-    const { service_type, phone, date, time } = params;
+    const { service_type, phone } = params;
 
     // Get or create patient first
     const patient = await getOrCreatePatient(phone);
 
-    // Si se proporcionan fecha y hora, crear el booking directamente en Cal.com
-    if (date && time) {
-      console.log(`Creating direct Cal.com booking: ${service_type}, ${date}, ${time}`);
-
-      // Parsear fecha y hora
-      const eventTypeId = getEventTypeId(service_type);
-      if (!eventTypeId) {
-        return { error: `No se encontró el servicio: ${service_type}` };
-      }
-
-      // Convertir fecha y hora a formato ISO UTC
-      // Esperamos formato: "YYYY-MM-DD" y "HH:MM"
-      const [year, month, day] = date.split('-').map(Number);
-      const [hours, minutes] = time.split(':').map(Number);
-
-      // Crear fecha en UTC
-      const bookingDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
-      const isoStart = bookingDate.toISOString();
-
-      // Crear booking en Cal.com
-      const calResult = await createCalBooking({
-        eventTypeId,
-        attendee: {
-          name: patient.full_name || 'Paciente',
-          email: `wa.${phone}@gmail.com`, // Email temporal con formato Gmail (dominios custom son bloqueados)
-          timeZone: 'America/Mexico_City',
-          phoneNumber: phone,
-        },
-        start: isoStart,
-        // NOTA: duration NO se pasa aquí, la duración está configurada en el event type
-      });
-
-      if (calResult.error) {
-        console.error('Cal.com booking error:', calResult.error);
-
-        // Dar un mensaje más amigable si es error de disponibilidad
-        const errorLower = calResult.error.toLowerCase();
-        if (errorLower.includes('not available') || errorLower.includes('already has booking') || errorLower.includes('bad request')) {
-          return {
-            error: `Lo siento, esa fecha y hora no están disponibles. Por favor intenta con otra fecha u hora, o contáctanos directamente para verificar disponibilidad.`,
-          };
-        }
-
-        return { error: calResult.error };
-      }
-
-      const calBookingData = calResult.data?.data || calResult.data;
-      const calBookingUid = calBookingData?.uid || calBookingData?.booking?.uid;
-
-      if (!calBookingUid) {
-        console.error('No UID in Cal.com response:', calResult);
-        return { error: 'Error: No se obtuvo UID de Cal.com' };
-      }
-
-      // Insert appointment en Supabase como CONFIRMADA
-      const { error: appointmentError } = await supabaseService
-        .from('appointments')
-        .insert({
-          patient_id: patient.id,
-          phone_number: phone,
-          cal_booking_uid: calBookingUid,
-          service_type,
-          appointment_date: isoStart,
-          status: 'scheduled', // Confirmada inmediatamente
-          notes: `Reserva creada directamente por API`,
-        });
-
-      if (appointmentError) {
-        console.error('Error inserting appointment:', appointmentError);
-        return { error: `Error al guardar cita: ${appointmentError.message}` };
-      }
-
-      // Formatear fecha para mostrar
-      const dateStr = bookingDate.toLocaleDateString('es-MX', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-
-      return {
-        success: true,
-        confirmed: true,
-        message: `✅ ¡Tu cita ha sido confirmada!\n\n📅 ${service_type} - ${dateStr}\n📍 Clínica Dental Sonrisa\n\nSi necesitas cancelar o reagendar, simplemente escríbeme "cancelar" o "reagendar".`,
-      };
-    }
-
-    // FALLBACK: Si no se proporcionan fecha y hora, usar el flujo con link
+    // Usar flujo de link de Cal.com (simple y confiable)
     console.log(`Using link-based booking for: ${service_type}`);
 
     const calBookingUid = `booking_${randomUUID()}`;
