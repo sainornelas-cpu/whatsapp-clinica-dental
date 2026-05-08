@@ -378,6 +378,15 @@ export async function POST(request: NextRequest) {
 
 // Tool functions
 
+// Generate Cal.com management link for an existing booking
+function getCalManagementLink(bookingUid: string): string | null {
+  if (!bookingUid) return null;
+  // Remove the "booking_" prefix if it exists (we added it, but Cal.com might not include it)
+  const uid = bookingUid.replace('booking_', '');
+  // Cal.com reschedule link format
+  return `https://cal.com/reschedule/${uid}`;
+}
+
 async function bookAppointment(params: any) {
   try {
     const { service_type, phone } = params;
@@ -445,14 +454,18 @@ async function getMyAppointments(params: any) {
     }
 
     return {
-      appointments: appointments.map((apt: any) => ({
-        id: apt.id,
-        cal_booking_uid: apt.cal_booking_uid,
-        service_type: apt.service_type,
-        appointment_date: apt.appointment_date,
-        status: apt.status === 'pending' ? 'pendiente de confirmación' : 'confirmada',
-        booking_link: apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null,
-      })),
+      appointments: appointments.map((apt: any) => {
+        const managementLink = getCalManagementLink(apt.cal_booking_uid);
+        return {
+          id: apt.id,
+          cal_booking_uid: apt.cal_booking_uid,
+          service_type: apt.service_type,
+          appointment_date: apt.appointment_date,
+          status: apt.status === 'pending' ? 'pendiente de confirmación' : 'confirmada',
+          management_link: managementLink,
+          booking_link: apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || null,
+        };
+      }),
     };
   } catch (error) {
     console.error('Error getting appointments:', error);
@@ -480,17 +493,32 @@ async function cancelAppointment(params: any) {
       return { error: 'No tienes citas programadas.' };
     }
 
-    // Return appointments with their Cal.com booking links
+    // Return appointments with their Cal.com management links
     // The patient will cancel directly from Cal.com
     const appointmentOptions = appointments.map((apt: any, index: number) => {
-      const bookingLink = apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || 'No disponible';
-      return `${index + 1}. ${apt.service_type} - ${new Date(apt.appointment_date).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
-Cancelar aquí: ${bookingLink}`;
+      const managementLink = getCalManagementLink(apt.cal_booking_uid);
+      const dateStr = new Date(apt.appointment_date).toLocaleDateString('es-MX', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      if (managementLink) {
+        return `${index + 1}. ${apt.service_type} - ${dateStr}
+
+Para cancelar: ${managementLink}`;
+      } else {
+        return `${index + 1}. ${apt.service_type} - ${dateStr}
+
+⚠️ Link de gestión no disponible. Por favor contáctanos directamente.`;
+      }
     }).join('\n\n');
 
     return {
       success: true,
-      message: `Para cancelar tu cita, selecciona una opción:\n\n${appointmentOptions}\n\nEl paciente debe cancelar directamente desde el link de Cal.com.`,
+      message: `Para cancelar tu cita, selecciona una opción y usa el link correspondiente:\n\n${appointmentOptions}\n\nEl link te llevará a Cal.com donde podrás cancelar o reagendar tu cita.`,
     };
   } catch (error) {
     console.error('Error cancelling appointment:', error);
@@ -518,17 +546,32 @@ async function rescheduleAppointment(params: any) {
       return { error: 'No tienes citas programadas.' };
     }
 
-    // Return appointments with their Cal.com booking links
+    // Return appointments with their Cal.com management links
     // The patient will reschedule directly from Cal.com
     const appointmentOptions = appointments.map((apt: any, index: number) => {
-      const bookingLink = apt.notes?.match(/https?:\/\/[^\s]+/)?.[0] || 'No disponible';
-      return `${index + 1}. ${apt.service_type} - ${new Date(apt.appointment_date).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
-Reagendar aquí: ${bookingLink}`;
+      const managementLink = getCalManagementLink(apt.cal_booking_uid);
+      const dateStr = new Date(apt.appointment_date).toLocaleDateString('es-MX', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      if (managementLink) {
+        return `${index + 1}. ${apt.service_type} - ${dateStr}
+
+Para reagendar: ${managementLink}`;
+      } else {
+        return `${index + 1}. ${apt.service_type} - ${dateStr}
+
+⚠️ Link de gestión no disponible. Por favor contáctanos directamente.`;
+      }
     }).join('\n\n');
 
     return {
       success: true,
-      message: `Para reagendar tu cita, selecciona una opción:\n\n${appointmentOptions}\n\nEl paciente debe reagendar directamente desde el link de Cal.com.`,
+      message: `Para reagendar tu cita, selecciona una opción y usa el link correspondiente:\n\n${appointmentOptions}\n\nEl link te llevará a Cal.com donde podrás reagendar o cancelar tu cita.`,
     };
   } catch (error) {
     console.error('Error rescheduling appointment:', error);
