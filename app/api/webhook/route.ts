@@ -415,6 +415,10 @@ async function bookAppointment(params: any) {
     // Get or create patient
     const patient = await getOrCreatePatient(phone);
 
+    // Add phone number to booking link for pre-filling
+    // Format: https://app.cal.com/username/event-type?phoneNumber=5216651108583
+    const bookingLinkWithPhone = `${bookingLink}?phoneNumber=${phone}`;
+
     // Insert appointment in Supabase como pendiente de confirmación
     const { error: appointmentError } = await supabaseService
       .from('appointments')
@@ -425,7 +429,7 @@ async function bookAppointment(params: any) {
         service_type,
         appointment_date: new Date().toISOString(), // Will be updated by Cal.com webhook
         status: 'pending',
-        notes: `Link de booking: ${bookingLink}`,
+        notes: `Link de booking: ${bookingLinkWithPhone}`,
       });
 
     if (appointmentError) {
@@ -433,12 +437,12 @@ async function bookAppointment(params: any) {
       return { error: `Error al crear cita: ${appointmentError.message}` };
     }
 
-    // Retornar el link de booking para que el usuario complete la reserva
+    // Retornar el link de booking con el teléfono pre-poblado
     return {
       success: true,
-      bookingLink,
+      bookingLink: bookingLinkWithPhone,
       calBookingUid,
-      message: `Para completar tu reserva de ${service_type}, por favor usa el siguiente link: ${bookingLink}`,
+      message: `Para completar tu reserva de ${service_type}, por favor usa el siguiente link: ${bookingLinkWithPhone}`,
     };
   } catch (error) {
     console.error('Error booking appointment:', error);
