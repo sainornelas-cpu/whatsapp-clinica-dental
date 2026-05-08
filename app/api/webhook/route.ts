@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { supabaseService } from '@/lib/supabase';
 import { getCalBookingLink } from '@/lib/cal-links';
-import { getEventTypeId, getDuration, createCalBooking } from '@/lib/cal-api';
+import { getEventTypeId, createCalBooking } from '@/lib/cal-api';
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -436,11 +436,20 @@ async function bookAppointment(params: any) {
           phoneNumber: phone,
         },
         start: isoStart,
-        duration: getDuration(service_type),
+        // NOTA: duration NO se pasa aquí, la duración está configurada en el event type
       });
 
       if (calResult.error) {
         console.error('Cal.com booking error:', calResult.error);
+
+        // Dar un mensaje más amigable si es error de disponibilidad
+        const errorLower = calResult.error.toLowerCase();
+        if (errorLower.includes('not available') || errorLower.includes('already has booking') || errorLower.includes('bad request')) {
+          return {
+            error: `Lo siento, esa fecha y hora no están disponibles. Por favor intenta con otra fecha u hora, o contáctanos directamente para verificar disponibilidad.`,
+          };
+        }
+
         return { error: calResult.error };
       }
 

@@ -72,7 +72,6 @@ export async function createCalBooking(params: {
     phoneNumber: string;
   };
   start: string; // ISO 8601 format, UTC
-  duration?: number;
 }) {
   try {
     const response = await fetch('https://api.cal.com/v2/bookings', {
@@ -86,7 +85,7 @@ export async function createCalBooking(params: {
         eventTypeId: params.eventTypeId,
         start: params.start,
         attendee: params.attendee,
-        duration: params.duration || 30,
+        // NOTA: duration NO va aquí, se configura en el event type
       }),
     });
 
