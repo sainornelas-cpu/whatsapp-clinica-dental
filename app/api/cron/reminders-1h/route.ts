@@ -59,13 +59,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching appointments for 1h reminder:', error);
-      return NextResponse('Error fetching appointments', { status: 500 });
+      return new NextResponse('Error fetching appointments', { status: 500 });
     }
 
     console.log(`Found ${appointments?.length || 0} appointments in the 1h window`);
 
     if (!appointments || appointments.length === 0) {
-      return NextResponse('No 1h reminders to send', { status: 200 });
+      return new NextResponse('No 1h reminders to send', { status: 200 });
     }
 
     let successCount = 0;

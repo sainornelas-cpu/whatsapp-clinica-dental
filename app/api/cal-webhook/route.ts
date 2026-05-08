@@ -36,6 +36,48 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string) {
   return response.json();
 }
 
+// Function to get or create patient with name
+async function getOrCreatePatient(phoneNumber: string, name?: string) {
+  try {
+    let { data: patient, error } = await supabaseService
+      .from('patients')
+      .select('*')
+      .eq('phone_number', phoneNumber)
+      .single();
+
+    if (error || !patient) {
+      const { data: newPatient, error: insertError } = await supabaseService
+        .from('patients')
+        .insert({
+          phone_number: phoneNumber,
+          full_name: name || 'Paciente',
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      patient = newPatient;
+    } else if (name && name !== patient.full_name) {
+      // Update patient name if we have it and it's different
+      const { data: updatedPatient, error: updateError } = await supabaseService
+        .from('patients')
+        .update({ full_name: name })
+        .eq('id', patient.id)
+        .select()
+        .single();
+
+      if (!updateError && updatedPatient) {
+        patient = updatedPatient;
+      }
+    }
+
+    return patient;
+  } catch (error) {
+    console.error('Error getting/creating patient:', error);
+    throw error;
+  }
+}
+
 // Handle BOOKING_CREATED event
 async function handleBookingCreated(payload: any) {
   const { data: { booking } } = payload;
@@ -64,6 +106,16 @@ async function handleBookingCreated(payload: any) {
   };
 
   const serviceType = eventTypeSlug ? serviceTypeMap[eventTypeSlug] : 'consulta';
+
+  // Ensure patient exists and has correct name
+  let patient = null;
+  if (attendeePhone) {
+    try {
+      patient = await getOrCreatePatient(attendeePhone, attendeeName);
+    } catch (error) {
+      console.error('Error getting/creating patient:', error);
+    }
+  }
 
   // Find appointment by cal_booking_uid
   const { data: appointment, error: findError } = await supabaseService
@@ -97,6 +149,7 @@ async function handleBookingCreated(payload: any) {
             status: 'scheduled',
             cal_booking_uid: bookingUid,
             appointment_date: startTime,
+            patient_id: patient?.id || pendingAppointment.patient_id,
             notes: pendingAppointment.notes, // Keep the booking link
             updated_at: new Date().toISOString(),
           })
@@ -109,7 +162,7 @@ async function handleBookingCreated(payload: any) {
 
         // Send confirmation message via WhatsApp
         try {
-          const patientName = attendeeName || 'Paciente';
+          const patientName = patient?.full_name || attendeeName || 'Paciente';
           const message = `¡Tu cita ha sido confirmada! 🦷
 
 ${patientName}, tu reserva para ${serviceType} está confirmada.
@@ -139,6 +192,7 @@ Si necesitas cancelar o reagendar, responde a este mensaje o usa el link de tu c
     .update({
       status: status === 'ACCEPTED' ? 'scheduled' : status.toLowerCase(),
       appointment_date: startTime,
+      patient_id: patient?.id || appointment.patient_id,
       updated_at: new Date().toISOString(),
     })
     .eq('id', appointment.id);
@@ -151,7 +205,7 @@ Si necesitas cancelar o reagendar, responde a este mensaje o usa el link de tu c
   // Send confirmation message if status is ACCEPTED
   if (status === 'ACCEPTED' && appointment.phone_number) {
     try {
-      const patientName = attendeeName || appointment.patients?.full_name || 'Paciente';
+      const patientName = patient?.full_name || attendeeName || appointment.patients?.full_name || 'Paciente';
       const message = `¡Tu cita ha sido confirmada! 🦷
 
 ${patientName}, tu reserva para ${serviceType} está confirmada.

@@ -82,9 +82,54 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string) {
   return response.json();
 }
 
+// Function to get or create patient
+async function getOrCreatePatient(phoneNumber: string, name?: string) {
+  try {
+    let { data: patient, error } = await supabaseService
+      .from('patients')
+      .select('*')
+      .eq('phone_number', phoneNumber)
+      .single();
+
+    if (error || !patient) {
+      const { data: newPatient, error: insertError } = await supabaseService
+        .from('patients')
+        .insert({
+          phone_number: phoneNumber,
+          full_name: name || 'Paciente',
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      patient = newPatient;
+    } else if (name && (!patient.full_name || patient.full_name === 'Paciente')) {
+      // Update patient name if we have it and it's currently 'Paciente'
+      const { data: updatedPatient, error: updateError } = await supabaseService
+        .from('patients')
+        .update({ full_name: name })
+        .eq('id', patient.id)
+        .select()
+        .single();
+
+      if (!updateError && updatedPatient) {
+        patient = updatedPatient;
+      }
+    }
+
+    return patient;
+  } catch (error) {
+    console.error('Error getting/creating patient:', error);
+    throw error;
+  }
+}
+
 // Function to get or create conversation
 async function getOrCreateConversation(phoneNumber: string) {
   try {
+    // First ensure patient exists
+    const patient = await getOrCreatePatient(phoneNumber);
+
     let { data: conversation, error } = await supabaseService
       .from('conversations')
       .select('*')
@@ -94,15 +139,30 @@ async function getOrCreateConversation(phoneNumber: string) {
     if (error || !conversation) {
       const { data: newConversation, error: insertError } = await supabaseService
         .from('conversations')
-        .insert({ phone_number: phoneNumber })
+        .insert({
+          phone_number: phoneNumber,
+          patient_id: patient.id,
+        })
         .select()
         .single();
 
       if (insertError) throw insertError;
       conversation = newConversation;
+    } else if (!conversation.patient_id) {
+      // Update conversation with patient_id if missing
+      const { data: updatedConversation, error: updateError } = await supabaseService
+        .from('conversations')
+        .update({ patient_id: patient.id })
+        .eq('id', conversation.id)
+        .select()
+        .single();
+
+      if (!updateError && updatedConversation) {
+        conversation = updatedConversation;
+      }
     }
 
-    return conversation;
+    return { ...conversation, patient };
   } catch (error) {
     console.error('Error getting/creating conversation:', error);
     throw error;
@@ -166,8 +226,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`Message from ${phoneNumber}: ${messageText}`);
 
-    // Get or create conversation
-    const conversation = await getOrCreateConversation(phoneNumber);
+    // Get or create conversation (this also creates/updates patient)
+    const conversationData = await getOrCreateConversation(phoneNumber);
+    const conversation = { id: conversationData.id, phone_number: conversationData.phone_number };
+    const patient = conversationData.patient;
 
     // Store user message
     await storeMessage(conversation.id, 'user', messageText);
@@ -175,11 +237,11 @@ export async function POST(request: NextRequest) {
     // Load conversation history for context
     const history = await loadConversationHistory(conversation.id, 10);
 
-    // Prepare messages for OpenAI - add phone number to system prompt for context
-    const systemPromptWithPhone = `${agentPrompt}\n\nINFORMACIÓN DEL PACIENTE ACTUAL:\n- Número de teléfono: ${phoneNumber}`;
+    // Prepare messages for OpenAI - add patient info to system prompt for context
+    const systemPromptWithContext = `${agentPrompt}\n\nINFORMACIÓN DEL PACIENTE ACTUAL:\n- Nombre: ${patient.full_name || 'Paciente'}\n- Número de teléfono: ${phoneNumber}`;
 
     const messages: any[] = [
-      { role: 'system', content: systemPromptWithPhone },
+      { role: 'system', content: systemPromptWithContext },
       ...history,
       { role: 'user', content: messageText },
     ];
@@ -331,10 +393,14 @@ async function bookAppointment(params: any) {
       return { error: `No se encontró configuración para el servicio: ${service_type}` };
     }
 
+    // Get or create patient
+    const patient = await getOrCreatePatient(phone);
+
     // Insert appointment in Supabase como pendiente de confirmación
     const { error: appointmentError } = await supabaseService
       .from('appointments')
       .insert({
+        patient_id: patient.id,
         phone_number: phone,
         cal_booking_uid: calBookingUid,
         service_type,
@@ -345,6 +411,7 @@ async function bookAppointment(params: any) {
 
     if (appointmentError) {
       console.error('Error inserting appointment:', appointmentError);
+      return { error: `Error al crear cita: ${appointmentError.message}` };
     }
 
     // Retornar el link de booking para que el usuario complete la reserva
